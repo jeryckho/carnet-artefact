@@ -33,10 +33,20 @@ Depuis une session Claude Code ouverte avec le compte claude.ai qui possédera l
      de « Moi »), `downloads` (export CSV de la vue Semaine).
 2. **Ouvrir** l'artefact. La page propose de créer les trois tableaux de départ
    (Kanban, File pour Claude, Investigation) ou un tableau vide.
-3. **Régler l'instance** (facultatif) : document `settings/app` dans la base,
-   écrit avec `ArtifactData` (`collection: settings`, `doc_id: app`) :
-   `{"title": "Nom affiché", "sub": "sous-titre", "contacts": true}`.
-   `contacts: true` active la vue Contacts et le champ Contact des cartes.
+3. **Régler l'instance** (facultatif) : bouton « Réglages » dans l'en-tête de la page
+   (réservé aux éditeurs de l'artefact quand la capacité `user` est déclarée, sinon à
+   tous ceux qui écrivent). Il édite le document `settings/app` de la base, que Claude
+   peut aussi écrire avec `ArtifactData` (`collection: settings`, `doc_id: app`) :
+   ```json
+   {"title": "Nom affiché", "sub": "sous-titre",
+    "views": {"list": true, "agenda": true, "week": false, "contacts": true},
+    "defaults": {"desktop": "cols", "mobile": "agenda"}}
+   ```
+   `views` retire des vues du sélecteur (Colonnes reste toujours) ; `contacts` active
+   aussi le champ Contact des cartes (l'ancien booléen `contacts` au premier niveau
+   reste lu en repli). `defaults` donne la vue de départ d'un tableau jamais ouvert, par
+   type d'écran. Un tableau peut retirer des vues pour lui seul (`views` sur le tableau,
+   depuis ses réglages), jamais en ajouter.
 4. **Partager** depuis le menu Partager de la page si d'autres personnes doivent y accéder.
 5. **Noter** l'URL de l'artefact et le titre dans la mémoire de la session Claude
    (pas dans ce dépôt, qui reste neutre).
