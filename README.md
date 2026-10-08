@@ -23,7 +23,8 @@ jamais par une divergence de code.
 
 Depuis une session Claude Code ouverte avec le compte claude.ai qui possédera l'artefact.
 
-1. **Publier** `board.html` comme nouvel artefact, en passant :
+1. **Publier** une copie de `board.html` sous un nom propre à l'instance (voir l'avertissement
+   plus bas sur les chemins déjà publiés) comme nouvel artefact, en passant :
    - `title` : le nom de l'instance (le fichier n'a pas de `<title>`) ;
    - `icon` : un mot générique, par exemple `board` ;
    - `capabilities` : `{"db": {}, "comments": {"composer_only": true}}`.
@@ -85,8 +86,13 @@ python tools/backup_md.py <dossier daté>
 produit `<dossier>/md/` : un `index.md` et une note par tableau (colonnes, cartes par colonne
 dans l'ordre d'affichage, détail, journal, historique replié, cartes archivées en fin).
 
-Restauration : `ArtifactData batch` avec des entrées `set` + `file_path` pointant sur ces
-JSON, 50 par lot, sans `if_version` sur une base vide.
+Restauration (testée) : `ArtifactData batch` avec des entrées `set` + `file_path` pointant
+sur ces JSON, 50 par lot, sans `if_version` sur une base vide. Les lots sont atomiques.
+Contrôle : ré-exporter la base restaurée avec `out_dir` et comparer les JSON deux à deux.
+
+Attention en créant l'artefact cible : publier un chemin de fichier déjà publié dans la
+session **redéploie** l'artefact précédent au lieu d'en créer un nouveau, même sans `url`.
+Copier `board.html` sous un autre nom avant de publier une nouvelle instance.
 
 ## Base de données
 
