@@ -170,6 +170,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tab.add { color: var(--claude); }
 .tab.dragging { opacity: .4; }
 .tab-drop { flex: none; width: 3px; border-radius: 2px; background: var(--claude); margin: 4px -2px 3px; }
+.tab.archived { font-style: italic; opacity: .65; }
+.tab.arch-toggle { color: var(--muted); font-size: 12px; margin-left: auto; }
+.arch-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 16px; border-bottom: 1px solid var(--line);
+  background: var(--surface-2); color: var(--muted); font-size: 13px;
+}
+.arch-banner .btn { padding: 3px 10px; }
 .tab-rename { font: inherit; border: 1px solid var(--claude); border-radius: 4px; padding: 2px 6px; width: 9em; background: var(--surface); color: var(--ink); }
 
 /* ---------- barre d'outils ---------- */
@@ -640,6 +648,7 @@ a.chip { text-decoration: none; }
   <button type="button" class="btn primary" id="add-card">Nouvelle carte</button>
 </div>
 <div class="filters" id="filters" hidden></div>
+<div class="arch-banner" id="arch-banner" hidden><span id="arch-banner-txt"></span><button type="button" class="btn" id="arch-banner-undo">Désarchiver le tableau</button></div>
 <div class="archive-drop" id="archive-drop" hidden>Déposer ici pour archiver</div>
 
 <main id="main"></main>
@@ -757,8 +766,17 @@ a.chip { text-decoration: none; }
       <legend class="label">Couleur de fond</legend>
       <div class="swatches" id="fb-swatches"></div>
     </fieldset>
+    <div class="field" id="fb-auto-field">
+      <label for="fb-auto">Archiver les cartes terminées après</label>
+      <div class="pick-row">
+        <input id="fb-auto" type="number" min="0" max="365" step="1" inputmode="numeric" style="max-width:7em">
+        <span class="hint" style="align-self:center">jours dans une colonne « fait » (0 = jamais). Rien ne se fait tout seul : bouton ci-dessous, ou Claude.</span>
+      </div>
+      <button type="button" class="btn ghost" id="fb-auto-run" style="justify-self:start" hidden></button>
+    </div>
     <div class="dlg-actions">
       <button type="button" class="btn danger" id="fb-del">Supprimer le tableau</button>
+      <button type="button" class="btn" id="fb-arch">Archiver le tableau</button>
       <span class="spacer"></span>
       <button type="button" class="btn" id="fb-cancel">Annuler</button>
       <button type="submit" class="btn primary">Enregistrer</button>
@@ -807,7 +825,7 @@ a.chip { text-decoration: none; }
     refIndex: new Map(), citedBy: new Map(),
     view: "cols", q: "", who: "", late: false, sort: "updated",
     fCols: new Set(), fPrio: new Set(), fArch: false, expanded: new Set(),
-    ready: false, dragging: null, dragTab: null, tabOrder: null, viewInit: false, pendingRender: false,
+    ready: false, dragging: null, dragTab: null, tabOrder: null, viewInit: false, showArchBoards: false, pendingRender: false,
     editing: null, editingBoard: null
   };
 
@@ -1129,6 +1147,12 @@ a.chip { text-decoration: none; }
   }
 
   const board = () => S.boards.find((b) => b.id === S.boardId) || null;
+  // Tableaux archivés : `archivedAt` sur le tableau. Onglet masqué sauf s'il est
+  // affiché ou si on a demandé à voir les archivés ; les cartes restent en base.
+  const isArchBoard = (b) => !!(b && b.archivedAt);
+  const activeBoards = () => S.boards.filter((b) => !isArchBoard(b));
+  const visibleBoards = () => S.boards.filter((b) => !isArchBoard(b) || S.showArchBoards || b.id === S.boardId);
+  const liveCardsOf = (boardId) => S.all.filter((it) => it.boardId === boardId && !isArch(it));
   const columnsOf = (b) => (b && Array.isArray(b.columns) && b.columns.length ? b.columns : PRESETS.free.columns);
 
   // ---------- rendu ----------
@@ -1164,6 +1188,9 @@ a.chip { text-decoration: none; }
       return;
     }
     tools.hidden = false;
+    const banner = $("#arch-banner");
+    banner.hidden = !isArchBoard(bd);
+    if (isArchBoard(bd)) $("#arch-banner-txt").textContent = `Tableau archivé le ${new Date(bd.archivedAt).toLocaleDateString("fr-FR")} : ses cartes sont archivées avec lui (visibles en vue Liste, filtre Archivées).`;
     if (S.view === "contacts" && !contactsOn() && S.loaded.contacts && S.loaded.cfg) S.view = "cols";
     const inContacts = S.view === "contacts";
     document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === S.view));
@@ -1256,11 +1283,14 @@ a.chip { text-decoration: none; }
 
   function renderTabs() {
     const tabs = $("#tabs");
-    tabs.innerHTML = S.boards.map((b) => {
+    const nArch = S.boards.filter(isArchBoard).length;
+    tabs.innerHTML = visibleBoards().map((b) => {
       const ic = ICONS[b.preset] || ICONS.free;
-      return `<button class="tab" role="tab" data-board="${esc(b.id)}" aria-selected="${b.id === S.boardId}"${S.db ? ' draggable="true"' : ""}><span class="kind" title="${ic.label}"><svg viewBox="0 0 16 16" aria-hidden="true">${ic.svg}</svg></span>${esc(b.name || "Sans nom")}</button>`;
+      const arch = isArchBoard(b);
+      return `<button class="tab${arch ? " archived" : ""}" role="tab" data-board="${esc(b.id)}" aria-selected="${b.id === S.boardId}"${S.db && !arch ? ' draggable="true"' : ""}${arch ? ` title="Archivé le ${esc(new Date(b.archivedAt).toLocaleDateString("fr-FR"))}"` : ""}><span class="kind" title="${ic.label}"><svg viewBox="0 0 16 16" aria-hidden="true">${ic.svg}</svg></span>${esc(b.name || "Sans nom")}</button>`;
     }
-    ).join("") + (S.db && S.boards.length ? `<button class="tab add" id="tab-add" title="Nouveau tableau">+ Tableau</button>` : "");
+    ).join("") + (S.db && S.boards.length ? `<button class="tab add" id="tab-add" title="Nouveau tableau">+ Tableau</button>` : "")
+    + (nArch ? `<button class="tab arch-toggle" id="tab-arch" aria-pressed="${S.showArchBoards}" title="${S.showArchBoards ? "Masquer les tableaux archivés" : "Afficher les tableaux archivés"}">${nArch} archivé${nArch > 1 ? "s" : ""}</button>` : "");
     tabs.querySelectorAll("[data-board]").forEach((t) => {
       t.onclick = () => {
         const id = t.dataset.board, ts = Date.now();
@@ -1276,6 +1306,7 @@ a.chip { text-decoration: none; }
       };
     });
     const add = $("#tab-add"); if (add) add.onclick = () => openBoard(null);
+    const at = $("#tab-arch"); if (at) at.onclick = () => { S.showArchBoards = !S.showArchBoards; renderTabs(); };
     if (S.db) wireTabDnD(tabs);
   }
 
@@ -1328,6 +1359,7 @@ a.chip { text-decoration: none; }
 
   async function moveBoard(ids) {
     const before = S.boards.map((b) => b.id);
+    ids = [...ids, ...before.filter((id) => !ids.includes(id))]; // onglets masqués (archivés) : en fin, ordre relatif gardé
     if (ids.join() === before.join()) return;
     const byId = Object.fromEntries(S.boards.map((b) => [b.id, b]));
     const writes = [];
@@ -2443,6 +2475,11 @@ a.chip { text-decoration: none; }
     $("#fb-cols-field").hidden = !b;
     $("#fb-cols").value = b ? colsToText(columnsOf(b)) : "";
     const del = $("#fb-del"); del.hidden = !b; del.classList.remove("armed"); del.textContent = "Supprimer le tableau";
+    const arch = $("#fb-arch"); arch.hidden = !b; arch.classList.remove("armed");
+    arch.textContent = b && isArchBoard(b) ? "Désarchiver le tableau" : "Archiver le tableau";
+    $("#fb-auto-field").hidden = !b;
+    $("#fb-auto").value = b ? String(Number(b.autoArchiveDays) || 0) : "0";
+    refreshAutoRun();
     if (!b) $("#fb-preset").value = "kanban";
     const t = b ? tintKey(b.tint) : "";
     const radio = document.querySelector(`input[name="fb-tint"][value="${t}"]`) || document.querySelector('input[name="fb-tint"][value=""]');
@@ -2460,7 +2497,8 @@ a.chip { text-decoration: none; }
         const b = board();
         const cols = textToCols($("#fb-cols").value, columnsOf(b));
         if (!cols.length) { toast("Il faut au moins une colonne."); return; }
-        await S.db.doc("boards/" + S.editingBoard).update({ name: $("#fb-name").value.trim() || b.name, columns: cols, tint: chosenTint(), updatedAt: now() });
+        const autoArchiveDays = Math.max(0, Math.min(365, Math.round(Number($("#fb-auto").value) || 0)));
+        await S.db.doc("boards/" + S.editingBoard).update({ name: $("#fb-name").value.trim() || b.name, columns: cols, tint: chosenTint(), autoArchiveDays, updatedAt: now() });
         toast("Tableau enregistré");
       } else {
         const preset = $("#fb-preset").value;
@@ -2486,6 +2524,84 @@ a.chip { text-decoration: none; }
       toast("Tableau supprimé");
     } catch (e) { writeFailed(e); }
   };
+
+  // ---------- archivage d'un tableau ----------
+  // Le tableau reçoit `archivedAt` ; ses cartes actives le même `archivedAt` +
+  // `archivedBy: "board"`, pour ne ramener qu'elles au désarchivage.
+  async function archiveBoard(id) {
+    const b = S.boards.find((x) => x.id === id); if (!b || !S.db) return false;
+    const at = now();
+    const cards = liveCardsOf(id);
+    try {
+      for (const it of cards) {
+        await S.db.doc("items/" + it.id).update({ archivedAt: at, archivedBy: "board", history: withHistory(it, [{ type: "archive", text: "Archivée avec le tableau" }]), updatedAt: at, by: ME() });
+      }
+      await S.db.doc("boards/" + id).update({ archivedAt: at, updatedAt: at });
+    } catch (e) { writeFailed(e); return false; }
+    if (S.boardId === id) {
+      const next = activeBoards().find((x) => x.id !== id);
+      if (next) selectBoard(next.id);
+    }
+    const n = cards.length;
+    toast(`Tableau archivé${n ? ` avec ${n} carte${n > 1 ? "s" : ""}` : ""}`, { label: "Annuler", run: () => unarchiveBoard(id) });
+    return true;
+  }
+  async function unarchiveBoard(id) {
+    const b = S.boards.find((x) => x.id === id); if (!b || !S.db || !b.archivedAt) return false;
+    const stamp = b.archivedAt, at = now();
+    const cards = S.all.filter((it) => it.boardId === id && it.archivedAt === stamp && it.archivedBy === "board");
+    try {
+      for (const it of cards) {
+        await S.db.doc("items/" + it.id).update({ archivedAt: "", archivedBy: "", history: withHistory(it, [{ type: "archive", text: "Désarchivée avec le tableau" }]), updatedAt: at, by: ME() });
+      }
+      await S.db.doc("boards/" + id).update({ archivedAt: "", updatedAt: at });
+    } catch (e) { writeFailed(e); return false; }
+    const n = cards.length;
+    toast(`Tableau désarchivé${n ? `, ${n} carte${n > 1 ? "s" : ""} de retour` : ""}`);
+    return true;
+  }
+  // Cartes restées plus de N jours dans une colonne « fait » : jamais au
+  // chargement, seulement sur le bouton des réglages (ou par Claude).
+  function autoArchiveCandidates(b, days) {
+    if (!b || !(days > 0)) return [];
+    const limit = Date.now() - days * 86400000;
+    return liveCardsOf(b.id).filter((it) => toneOf(b.id, it.column) === "done" && Date.parse(it.doneAt || it.updatedAt || "") < limit);
+  }
+  function refreshAutoRun() {
+    const btn = $("#fb-auto-run"), b = S.editingBoard ? S.boards.find((x) => x.id === S.editingBoard) : null;
+    const days = Math.round(Number($("#fb-auto").value) || 0);
+    const n = b ? autoArchiveCandidates(b, days).length : 0;
+    btn.hidden = !b || !days || !n;
+    btn.textContent = `Archiver maintenant ${n > 1 ? `les ${n} cartes terminées` : "la carte terminée"} depuis plus de ${days} j`;
+  }
+  $("#fb-auto").addEventListener("input", refreshAutoRun);
+  $("#fb-auto-run").onclick = async () => {
+    const b = S.boards.find((x) => x.id === S.editingBoard); if (!b) return;
+    const days = Math.round(Number($("#fb-auto").value) || 0);
+    const cards = autoArchiveCandidates(b, days);
+    const btn = $("#fb-auto-run"); btn.disabled = true;
+    try {
+      for (const it of cards) {
+        await S.db.doc("items/" + it.id).update({ archivedAt: now(), archivedBy: "auto", history: withHistory(it, [{ type: "archive", text: `Archivée automatiquement (${days} j en ${colLabelOf(b.id, it.column)})` }]), updatedAt: now(), by: ME() });
+      }
+      const n = cards.length;
+      toast(`${n} carte${n > 1 ? "s" : ""} archivée${n > 1 ? "s" : ""}`);
+    } catch (e) { writeFailed(e); }
+    finally { btn.disabled = false; refreshAutoRun(); }
+  };
+  $("#fb-arch").onclick = async () => {
+    const btn = $("#fb-arch"), id = S.editingBoard;
+    const b = S.boards.find((x) => x.id === id); if (!b) return;
+    if (isArchBoard(b)) { if (await unarchiveBoard(id)) $("#dlg-board").close(); return; }
+    const n = liveCardsOf(id).length;
+    if (n && !btn.classList.contains("armed")) {
+      btn.classList.add("armed");
+      btn.textContent = `Confirmer : les ${n} carte${n > 1 ? "s" : ""} active${n > 1 ? "s" : ""} seront archivées avec le tableau`;
+      return;
+    }
+    if (await archiveBoard(id)) $("#dlg-board").close();
+  };
+  $("#arch-banner-undo").onclick = () => unarchiveBoard(S.boardId);
 
   async function seedBoards() {
     const btn = $("#seed"); if (btn) btn.disabled = true;
@@ -2602,9 +2718,10 @@ a.chip { text-decoration: none; }
       setStatus("live", "en direct");
       const linked = link.board && S.boards.some((b) => b.id === link.board) ? link.board : null;
       if (S.boards.length) link.board = null; // l'ancre ne sert qu'une fois
+      const okPref = S.boards.find((b) => b.id === pref.get("board"));
       const wanted = linked || (S.boards.find((b) => b.id === S.boardId) ? S.boardId
-        : S.boards.find((b) => b.id === pref.get("board")) ? pref.get("board")
-        : S.boards[0] && S.boards[0].id);
+        : okPref && !isArchBoard(okPref) ? okPref.id
+        : (activeBoards()[0] || S.boards[0] || {}).id);
       const first = !S.viewInit && !!wanted;
       S.boardId = wanted || null;
       // Premier chargement : la vue dépend du tableau, inconnu avant ce point.
