@@ -633,19 +633,19 @@ a.chip { text-decoration: none; }
 
 <div class="tools" id="tools" hidden>
   <div class="seg" role="group" aria-label="Vue">
-    <button type="button" data-view="cols" aria-pressed="true">Colonnes</button>
-    <button type="button" data-view="list" aria-pressed="false">Liste</button>
+    <button type="button" data-view="cols" aria-pressed="true" title="Colonnes (C)">Colonnes</button>
+    <button type="button" data-view="list" aria-pressed="false" title="Liste (L)">Liste</button>
     <button type="button" data-view="agenda" aria-pressed="false">Agenda</button>
     <button type="button" data-view="week" aria-pressed="false">Semaine</button>
     <button type="button" data-view="contacts" id="v-contacts" aria-pressed="false" hidden>Contacts</button>
   </div>
   <button type="button" class="btn" id="tools-more" aria-expanded="false">Filtres</button>
-  <input class="search t-extra" id="q" type="search" placeholder="Filtrer : titre, texte, étiquette, réf." aria-label="Filtrer">
+  <input class="search t-extra" id="q" type="search" placeholder="Filtrer : titre, texte, étiquette, réf." aria-label="Filtrer" title="Filtrer (/)">
   <div class="seg t-extra" role="group" aria-label="Personne" id="who-seg"></div>
   <button type="button" class="btn seg-btn t-extra" id="late" aria-pressed="false">En retard</button>
   <span class="spacer"></span>
   <button type="button" class="btn ghost t-extra" id="board-settings">Réglages du tableau</button>
-  <button type="button" class="btn primary" id="add-card">Nouvelle carte</button>
+  <button type="button" class="btn primary" id="add-card" title="Nouvelle carte (N)">Nouvelle carte</button>
 </div>
 <div class="filters" id="filters" hidden></div>
 <div class="arch-banner" id="arch-banner" hidden><span id="arch-banner-txt"></span><button type="button" class="btn" id="arch-banner-undo">Désarchiver le tableau</button></div>
@@ -2646,6 +2646,24 @@ a.chip { text-decoration: none; }
   $("#late").onclick = () => { S.late = !S.late; render(); };
   S.sort = ["ref", "title", "column", "prio", "due", "who", "tags", "updated"].includes(pref.get("sort")) ? pref.get("sort") : "updated";
   S.dir = pref.get("dir") === "asc" ? "asc" : "desc";
+
+  // ---------- raccourcis clavier ----------
+  // N nouvelle carte, / recherche, L liste, C colonnes. Inactifs dans un champ,
+  // dans une fenêtre ouverte, avec un modificateur, ou sans tableau.
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    const t = e.target;
+    if (t && t.closest && t.closest("input, textarea, select, [contenteditable]")) return;
+    if (document.querySelector("dialog[open]")) return;
+    if (!S.db || !S.boards.length) return;
+    const k = e.key.toLowerCase();
+    if (k === "n") { if (S.view === "contacts" || !board()) return; openCard(null); }
+    else if (k === "/") { const q = $("#q"); if (q.offsetParent === null) { $("#tools").classList.add("open"); $("#tools-more").setAttribute("aria-expanded", "true"); } q.focus(); q.select(); }
+    else if (k === "l") { setView("list"); render(); }
+    else if (k === "c") { setView("cols"); render(); }
+    else return;
+    e.preventDefault();
+  });
 
   setInterval(() => {
     document.querySelectorAll("[data-ago]").forEach((el) => { el.textContent = (el.dataset.prefix || "") + ago(el.dataset.ago); });
