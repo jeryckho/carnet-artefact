@@ -17,6 +17,7 @@ jamais par une divergence de code.
 | `board.html` | La page complète (CSS, HTML, JS), sans dépendance locale. Librairies `marked` et `DOMPurify` chargées depuis cdnjs. |
 | `CHANGELOG.md` | Une ligne par version publiée. |
 | `test/serve.py` | Banc de test local : la page branchée sur une base factice en mémoire, servie sur `http://127.0.0.1:8765/`. |
+| `tools/backup_md.py` | Rend une sauvegarde brute de la base (un JSON par document) en notes Markdown, une par tableau. |
 
 ## Installer une nouvelle instance
 
@@ -69,6 +70,23 @@ intermédiaire. `Ctrl+C` pour arrêter.
 
 Le banc ne couvre pas les capacités `comments`, `user` et `downloads` : la page les
 ignore quand elles manquent, comme en lecture hors claude.ai.
+
+## Sauvegarder les données d'une instance
+
+Les cartes n'existent que dans la base de l'artefact. Export depuis une session Claude Code :
+`ArtifactData list` sur chaque collection (`boards`, `items`, `contacts`, `settings`) avec
+`query.limit` à 1000 et `out_dir` sur un dossier daté, hors de ce dépôt. L'outil écrit un
+fichier `<collection>/<id>.json` par document. Puis :
+
+```bash
+python tools/backup_md.py <dossier daté>
+```
+
+produit `<dossier>/md/` : un `index.md` et une note par tableau (colonnes, cartes par colonne
+dans l'ordre d'affichage, détail, journal, historique replié, cartes archivées en fin).
+
+Restauration : `ArtifactData batch` avec des entrées `set` + `file_path` pointant sur ces
+JSON, 50 par lot, sans `if_version` sur une base vide.
 
 ## Base de données
 
