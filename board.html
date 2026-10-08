@@ -783,10 +783,11 @@ a.chip { text-decoration: none; }
     </fieldset>
     <div class="field" id="fb-auto-field">
       <label for="fb-auto">Archiver les cartes terminées après</label>
-      <div class="pick-row">
-        <input id="fb-auto" type="number" min="0" max="365" step="1" inputmode="numeric" style="max-width:7em">
-        <span class="hint" style="align-self:center">jours dans une colonne « fait » (0 = jamais). Rien ne se fait tout seul : bouton ci-dessous, ou Claude.</span>
+      <div class="pick-row" style="align-items:center;gap:8px">
+        <input id="fb-auto" type="number" min="0" max="365" step="1" inputmode="numeric" style="flex:0 0 6em;width:6em">
+        <span>jours dans une colonne « fait »</span>
       </div>
+      <span class="hint">0 = jamais. Rien ne se fait tout seul : le bouton ci-dessous, ou Claude.</span>
       <button type="button" class="btn ghost" id="fb-auto-run" style="justify-self:start" hidden></button>
     </div>
     <div class="dlg-actions">

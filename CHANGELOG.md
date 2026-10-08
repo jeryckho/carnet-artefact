@@ -4,6 +4,7 @@ Version = numéro annoncé par l'outil Artifact à la publication sur l'instance
 
 | Version | Date | Changement |
 |---|---|---|
+| v39 | 2026-10-08 | Réglages du tableau : champ « jours » d'archivage à largeur fixe, explication sous le champ (le champ était écrasé). |
 | v38 | 2026-10-08 | Réglages de l'instance : écran « Réglages » (nom, sous-titre, vues proposées, vue par défaut ordinateur / téléphone) qui écrit `settings/app` (`views`, `defaults`) ; sélecteur de vue filtré, vue interdite rabattue sur Colonnes ; surcharge `views` par tableau dans ses réglages ; bouton réservé aux éditeurs quand la capacité `user` répond. |
 | v37 | 2026-10-08 | Raccourcis clavier : `N` nouvelle carte, `/` filtre, `L` Liste, `C` Colonnes (inactifs dans un champ, une fenêtre ouverte ou avec modificateur). |
 | v36 | 2026-10-08 | Archiver un tableau (`archivedAt` sur le tableau, cartes actives archivées avec lui `archivedBy: "board"`, désarchivage symétrique, onglets archivés masqués avec compteur, bandeau). Réglage `autoArchiveDays` + bouton d'archivage des cartes terminées anciennes (`archivedBy: "auto"`). |
