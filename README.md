@@ -14,7 +14,7 @@ jamais par une divergence de code.
 
 | Fichier | Rôle |
 |---|---|
-| `board.html` | La page complète (CSS, HTML, JS), sans dépendance locale. Librairies `marked` et `DOMPurify` chargées depuis cdnjs. |
+| `board.html` | La page complète (CSS, HTML, JS), sans dépendance locale. Librairies `marked` et `DOMPurify` chargées depuis cdnjs ; `mermaid` chargée depuis cdnjs seulement quand un bloc ` ```mermaid ` est affiché. |
 | `CHANGELOG.md` | Une ligne par version publiée. |
 | `test/serve.py` | Banc de test local : la page branchée sur une base factice en mémoire, servie sur `http://127.0.0.1:8765/`. |
 | `tools/backup_md.py` | Rend une sauvegarde brute de la base (un JSON par document) en notes Markdown, une par tableau. |

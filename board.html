@@ -91,6 +91,8 @@
 }
 
 html, body { height: 100%; }
+/* même règle que l'enveloppe d'artefact, pour un rendu identique hors artefact (banc de test) */
+[hidden]:not([hidden="until-found" i]) { display: none !important; }
 /* teinte de fond selon le type du tableau affiché */
 body[data-kind="kanban"] { --bg: var(--bg-kanban); }
 body[data-kind="queue"] { --bg: var(--bg-queue); }
@@ -309,6 +311,10 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .body code { font: 12px var(--mono); background: var(--surface-2); padding: 0 3px; border-radius: 3px; }
 .body pre { background: var(--surface-2); padding: 6px 8px; border-radius: 4px; overflow-x: auto; }
 .body pre code { background: none; padding: 0; }
+.mermaid-box { overflow-x: auto; margin: 0 0 6px; }
+.mermaid-box svg { max-width: 100%; height: auto; display: block; }
+.body pre.mermaid-error { border-left: 3px solid var(--t-alert); }
+.body pre.mermaid-wait { opacity: .6; }
 .body a { color: var(--claude); }
 .more { border: 0; background: none; padding: 0; color: var(--claude); font-size: 12px; cursor: pointer; justify-self: start; }
 .card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
@@ -1078,6 +1084,78 @@ a.chip { text-decoration: none; }
     });
   }
   const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "";
+
+  // ---------- diagrammes Mermaid ----------
+  // Un bloc ```mermaid du markdown est dessiné une fois inséré dans la page.
+  // La librairie (lourde) n'est chargée qu'au premier bloc rencontré. Le SVG
+  // produit passe par DOMPurify (profil SVG) ; étiquettes sans HTML embarqué
+  // pour rester dans ce profil. Le source reste sur la boîte pour redessiner
+  // au changement de thème.
+  const MERMAID_SRC = "https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.15.0/mermaid.min.js";
+  let mermaidLoad = null, mermaidSeq = 0, mermaidTheme = "";
+  const pageDark = () => root.getAttribute("data-theme") === "dark"
+    || (!root.getAttribute("data-theme") && !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches));
+  function loadMermaid() {
+    if (window.mermaid) return Promise.resolve(window.mermaid);
+    if (mermaidLoad) return mermaidLoad;
+    mermaidLoad = new Promise((res, rej) => {
+      const sc = document.createElement("script");
+      sc.src = MERMAID_SRC; sc.async = true;
+      sc.onload = () => res(window.mermaid);
+      sc.onerror = () => { mermaidLoad = null; rej(new Error("mermaid indisponible")); };
+      document.head.appendChild(sc);
+    });
+    return mermaidLoad;
+  }
+  async function drawMermaid() {
+    const codes = [...document.querySelectorAll("code.language-mermaid:not([data-mm])")];
+    if (!codes.length) return;
+    codes.forEach((c) => { c.dataset.mm = "wait"; const pre = c.closest("pre"); if (pre) pre.classList.add("mermaid-wait"); });
+    let mm;
+    try { mm = await loadMermaid(); }
+    catch { codes.forEach((c) => { c.dataset.mm = "fail"; const pre = c.closest("pre"); if (pre) { pre.classList.remove("mermaid-wait"); pre.classList.add("mermaid-error"); pre.title = "Librairie Mermaid indisponible"; } }); return; }
+    const th = pageDark() ? "dark" : "neutral";
+    if (mermaidTheme !== th) {
+      mermaidTheme = th;
+      // `htmlLabels` au niveau global : Mermaid 11 ignore la version par diagramme.
+      mm.initialize({ startOnLoad: false, theme: th, securityLevel: "strict", htmlLabels: false, flowchart: { htmlLabels: false }, suppressErrorRendering: true, fontFamily: '"IBM Plex Sans", system-ui, sans-serif' });
+    }
+    for (const c of codes) {
+      if (!c.isConnected) continue;
+      const pre = c.closest("pre") || c, src = c.textContent;
+      try {
+        const { svg } = await mm.render("mm-" + (++mermaidSeq), src);
+        const box = document.createElement("div");
+        box.className = "mermaid-box"; box.dataset.mmSrc = src;
+        // Profil SVG + HTML assaini, au cas où un type de diagramme garde des étiquettes en foreignObject.
+        box.innerHTML = window.DOMPurify ? DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true, html: true }, ADD_TAGS: ["foreignObject"] }) : "";
+        if (box.querySelector("svg")) pre.replaceWith(box);
+        else throw new Error("svg vide");
+      } catch (e) {
+        // Mermaid laisse parfois son dessin d'erreur dans le document : on l'enlève.
+        document.querySelectorAll(`#mm-${mermaidSeq}, #dmm-${mermaidSeq}`).forEach((n) => { if (!n.closest(".mermaid-box")) n.remove(); });
+        c.dataset.mm = "fail";
+        pre.classList.remove("mermaid-wait"); pre.classList.add("mermaid-error");
+        pre.title = "Diagramme Mermaid invalide" + (e && e.message ? " : " + String(e.message).slice(0, 120) : "");
+      }
+    }
+  }
+  // Changement de thème : les boîtes redeviennent des blocs de code, redessinés.
+  function redrawMermaid() {
+    const th = pageDark() ? "dark" : "neutral";
+    if (th === mermaidTheme) return;
+    document.querySelectorAll(".mermaid-box").forEach((box) => {
+      const pre = document.createElement("pre"), code = document.createElement("code");
+      code.className = "language-mermaid"; code.textContent = box.dataset.mmSrc || "";
+      pre.appendChild(code); box.replaceWith(pre);
+    });
+    drawMermaid();
+  }
+  let mermaidTimer;
+  new MutationObserver(() => { clearTimeout(mermaidTimer); mermaidTimer = setTimeout(drawMermaid, 30); })
+    .observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(redrawMermaid).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  if (window.matchMedia) { try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawMermaid); } catch {} }
 
   // Liens : `links` [{label, url}] ; l'ancien champ `source` sert de repli.
   const linksOf = (it) => Array.isArray(it.links) && it.links.length
