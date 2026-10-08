@@ -807,7 +807,7 @@ a.chip { text-decoration: none; }
     refIndex: new Map(), citedBy: new Map(),
     view: "cols", q: "", who: "", late: false, sort: "updated",
     fCols: new Set(), fPrio: new Set(), fArch: false, expanded: new Set(),
-    ready: false, dragging: null, dragTab: null, tabOrder: null, pendingRender: false,
+    ready: false, dragging: null, dragTab: null, tabOrder: null, viewInit: false, pendingRender: false,
     editing: null, editingBoard: null
   };
 
@@ -816,10 +816,23 @@ a.chip { text-decoration: none; }
     get(k) { try { return localStorage.getItem("etabli." + k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem("etabli." + k, v); } catch {} }
   };
-  // Sans préférence enregistrée : agenda sur téléphone, colonnes ailleurs.
+  // Vue mémorisée par tableau (`view.<boardId>`), comme les colonnes repliées.
+  // Sans préférence : l'ancienne clé globale `view` sert de valeur de départ,
+  // sinon agenda sur téléphone, colonnes ailleurs. Contacts, hors tableau,
+  // n'est jamais mémorisée : on revient à la vue du tableau en la quittant.
   const VIEWS = ["cols", "list", "agenda", "week", "contacts"];
-  S.view = VIEWS.includes(pref.get("view")) ? pref.get("view")
-    : (window.matchMedia && matchMedia("(max-width: 560px)").matches ? "agenda" : "cols");
+  const defaultView = () => (window.matchMedia && matchMedia("(max-width: 560px)").matches ? "agenda" : "cols");
+  function viewOf(boardId) {
+    const own = boardId ? pref.get("view." + boardId) : null;
+    if (VIEWS.includes(own) && own !== "contacts") return own;
+    const legacy = pref.get("view");
+    return VIEWS.includes(legacy) && legacy !== "contacts" ? legacy : defaultView();
+  }
+  function setView(v) {
+    S.view = v;
+    if (v !== "contacts" && S.boardId) pref.set("view." + S.boardId, v);
+  }
+  S.view = defaultView();
   // Lien direct, par l'ancre de l'adresse : « …#detrep » ouvre ce tableau,
   // « …#detrep.agenda » choisit aussi la vue, « …#contacts » une vue seule.
   // Il vaut pour cette ouverture, sans toucher aux préférences enregistrées.
@@ -831,6 +844,7 @@ a.chip { text-decoration: none; }
     return { board: a && !(view && !b) ? a : null, view };
   }
   let link = readHash();
+  const viewFromLink = !!link.view;
   if (link.view) S.view = link.view;
 
   // ---------- thème ----------
@@ -1722,7 +1736,7 @@ a.chip { text-decoration: none; }
     const it = S.all.find((i) => i.id === id); if (!it) return;
     if (S.who && (S.who === "none" ? !!it.assignee : it.assignee !== S.who)) S.who = "";
     if (itemGroup(it) === "done") S.allDone = true;
-    S.view = "agenda"; pref.set("view", "agenda");
+    setView("agenda");
     S.openId = id; S.bodyEdit = false;
     render();
     const el = $("#main .ag-item.is-open"); if (el) el.scrollIntoView({ block: "nearest" });
@@ -1884,7 +1898,7 @@ a.chip { text-decoration: none; }
       else if (setcol) { if (setcol.dataset.setcol !== cur.column) moveCard(id, setcol.dataset.setcol, lastIdIn(setcol.dataset.setcol)); }
       else if (pk && pk.dataset.pick === "due") pickDate(cur.due || "", (v) => patchItem(id, v ? { due: v } : { due: "", dueTime: "" }));
       else if (pk) pickTime(cur.dueTime || "", (v) => saveField(id, "dueTime", v));
-      else if (go) { S.view = "contacts"; pref.set("view", "contacts"); S.openContact = go.dataset.gocontact; render(); }
+      else if (go) { setView("contacts"); S.openContact = go.dataset.gocontact; render(); }
       else if (t.closest("[data-bodyedit]")) { S.bodyEdit = !S.bodyEdit; render(); }
       else if (t.closest("[data-full]")) openCard(cur);
       else if (t.closest("[data-close]")) { S.openId = null; render(); }
@@ -2487,7 +2501,7 @@ a.chip { text-decoration: none; }
 
   // ---------- navigation ----------
   function selectBoard(id) {
-    if (S.boardId !== id) S.fCols = new Set(); // les colonnes diffèrent d'un tableau à l'autre
+    if (S.boardId !== id) { S.fCols = new Set(); S.view = viewOf(id); } // colonnes et vue sont propres à chaque tableau
     S.boardId = id; pref.set("board", id);
     S.items = S.all.filter((it) => it.boardId === S.boardId);
     render();
@@ -2508,7 +2522,7 @@ a.chip { text-decoration: none; }
     }, (e) => { setStatus("error", "hors ligne"); if (e && e.code === "revoked") { S.db = null; render(); } });
   }
 
-  document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { S.view = b.dataset.view; pref.set("view", S.view); render(); });
+  document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { setView(b.dataset.view); render(); });
   $("#tools-more").onclick = () => { $("#tools-more").setAttribute("aria-expanded", String($("#tools").classList.toggle("open"))); };
   let qTimer;
   $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value; render(); }, 120); });
@@ -2528,7 +2542,7 @@ a.chip { text-decoration: none; }
     const known = !l.board || S.boards.some((b) => b.id === l.board);
     if (l.view) S.view = l.view;
     if (l.board && known) {
-      if (S.boardId !== l.board) S.fCols = new Set();
+      if (S.boardId !== l.board) { S.fCols = new Set(); if (!l.view) S.view = viewOf(l.board); }
       S.boardId = l.board;
       S.items = S.all.filter((it) => it.boardId === S.boardId);
     }
@@ -2591,7 +2605,11 @@ a.chip { text-decoration: none; }
       const wanted = linked || (S.boards.find((b) => b.id === S.boardId) ? S.boardId
         : S.boards.find((b) => b.id === pref.get("board")) ? pref.get("board")
         : S.boards[0] && S.boards[0].id);
+      const first = !S.viewInit && !!wanted;
       S.boardId = wanted || null;
+      // Premier chargement : la vue dépend du tableau, inconnu avant ce point.
+      // Une vue donnée par l'ancre vaut pour cette ouverture seulement.
+      if (first) { S.viewInit = true; if (!viewFromLink) S.view = viewOf(S.boardId); }
       S.items = S.all.filter((it) => it.boardId === S.boardId);
       render();
     }, (e) => { setStatus("error", "hors ligne"); if (e && e.code === "revoked") { S.db = null; render(); } });
