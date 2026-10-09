@@ -196,6 +196,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .seg button { border: 0; background: var(--surface); padding: 5px 10px; cursor: pointer; color: var(--muted); }
 .seg button + button { border-left: 1px solid var(--line-strong); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+/* filtre actif : champ en évidence et badge dans la barre d'outils */
+.search.active { border-color: var(--t-active); background: color-mix(in srgb, var(--t-active) 12%, var(--surface)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--t-active) 30%, transparent); }
+.filter-state {
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 3px 4px 3px 10px; border-radius: 14px; font-size: 12px; font-weight: 500;
+  background: var(--t-active); color: #fff;
+}
+.filter-state button { all: unset; cursor: pointer; padding: 1px 8px; border-radius: 10px; background: rgba(255, 255, 255, .22); font-weight: 600; }
+.filter-state button:hover { background: rgba(255, 255, 255, .38); }
+.filter-state button:focus-visible { outline: 2px solid #fff; }
 .search {
   flex: 1 1 180px;
   max-width: 320px;
@@ -651,6 +661,7 @@ a.chip { text-decoration: none; }
     <button type="button" data-view="contacts" id="v-contacts" aria-pressed="false" hidden>Contacts</button>
   </div>
   <button type="button" class="btn" id="tools-more" aria-expanded="false">Filtres</button>
+  <span class="filter-state" id="filter-state" role="status" hidden><span id="filter-state-txt"></span><button type="button" id="filter-clear" title="Retirer tous les filtres">Tout afficher</button></span>
   <input class="search t-extra" id="q" type="search" placeholder="Filtrer : titre, texte, étiquette, réf." aria-label="Filtrer" title="Filtrer (/)">
   <div class="seg t-extra" role="group" aria-label="Personne" id="who-seg"></div>
   <button type="button" class="btn seg-btn t-extra" id="late" aria-pressed="false">En retard</button>
@@ -1357,6 +1368,22 @@ a.chip { text-decoration: none; }
     $("#q").placeholder = inContacts ? "Filtrer les contacts" : "Filtrer : titre, texte, étiquette, réf.";
     renderWho();
     $("#late").setAttribute("aria-pressed", S.late);
+    // Filtre actif : le champ de recherche change d'aspect et un badge dit
+    // combien de cartes restent, avec un bouton pour tout retirer.
+    const q = S.q.trim();
+    $("#q").classList.toggle("active", !!q);
+    const listF = S.view === "list" && (S.fCols.size || S.fPrio.size || S.fArch);
+    const filtering = !inContacts && !!(q || S.who || S.late || listF);
+    const fs = $("#filter-state");
+    fs.hidden = !filtering;
+    if (filtering) {
+      const n = visibleItems().length, parts = [];
+      if (q) parts.push(`« ${q} »`);
+      if (S.who) parts.push(S.who === "none" ? "sans personne" : whoOut(S.who));
+      if (S.late) parts.push("en retard");
+      if (listF) parts.push("filtres de la liste");
+      $("#filter-state-txt").textContent = `${n} carte${n > 1 ? "s" : ""} · ${parts.join(" · ")}`;
+    }
     // Champ en cours de saisie dans une vue à édition directe : on le retrouve après le re-rendu.
     const ae = document.activeElement;
     let keep = null;
@@ -2850,6 +2877,11 @@ a.chip { text-decoration: none; }
   $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value; render(); }, 120); });
   $("#add-card").onclick = () => openCard(null);
   $("#late").onclick = () => { S.late = !S.late; render(); };
+  $("#filter-clear").onclick = () => {
+    S.q = ""; $("#q").value = ""; S.who = ""; S.late = false;
+    S.fCols.clear(); S.fPrio.clear(); S.fArch = false;
+    render();
+  };
   S.sort = ["ref", "title", "column", "prio", "due", "who", "tags", "updated"].includes(pref.get("sort")) ? pref.get("sort") : "updated";
   S.dir = pref.get("dir") === "asc" ? "asc" : "desc";
 
