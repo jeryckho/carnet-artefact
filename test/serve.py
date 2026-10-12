@@ -53,14 +53,21 @@ STUB = r'''<!doctype html><html><head><meta charset=utf8><meta name=viewport con
   // étiquettes, limite de colonne, vues enregistrées). Tableau 1 seulement.
   store.boards.b1.columns = [cols[0], { ...cols[1], limit: 2 }, cols[2]];
   const T = new Date().toISOString();
-  const card = (id, title, column, order, extra) => { store.items[id] = { boardId: "b1", title, body: "", column, order, assignee: "", tags: [], links: [], due: "", dueTime: "", priority: 0, activity: [], history: [{ at: T, by: "moi", type: "create", text: "Créée dans " + column }], archivedAt: "", archivedBy: "", by: "moi", createdAt: T, updatedAt: T, ...extra }; };
-  card("a1", "Mantis 11377 — Suggestions de liens : filtrer par taxonomie", "todo", 1000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi", blockedBy: ["a7"], body: "- [ ] Relire la spec\n- [ ] Chiffrer\n- [x] Accuser réception" });
-  card("a2", "Mantis 11378 — Transcription : paragraphes via retour chariot", "todo", 2000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi", blockedBy: ["a4"] });
-  card("a3", "Relire le mail de Paul « Rubedo + Redway »", "todo", 3000, { tags: ["RubWay"], priority: 2, assignee: "claude", blockedBy: ["zz"], links: [{ url: "https://mail.google.com/", label: "Gmail" }] });
-  card("a4", "SDP 96786 — Liseuse : liens des grilles de jeux décalés", "doing", 1000, { tags: ["Liseuse", "sdp"], priority: 1, assignee: "moi", due: "2026-10-01" });
-  card("a5", "MEP mensuelle", "doing", 2000, { tags: ["mep"], assignee: "claude", body: "- [x] build\n- [ ] deploy\n- [ ] test", due: "2026-10-20", dueTime: "09:00" });
-  card("a6", "Spool2xfr : suivi recette", "doing", 3000, { tags: ["Cloudinary"], assignee: "moi", activity: [{ at: T, by: "claude", text: "Recette passée sur QA, reste la prod." }] });
-  card("a7", "Nouveau fichier de config appli V4", "done", 1000, { tags: ["Eidos"], assignee: "claude", doneAt: T });
+  // d(n, h) = il y a n jours à h heures, en ISO ; LBL = libellé d'une colonne de la démo.
+  const d = (n, h = 10) => { const x = new Date(); x.setDate(x.getDate() - n); x.setHours(h, 0, 0, 0); return x.toISOString(); };
+  const LBL = { todo: "A faire", doing: "En cours", done: "Fait" };
+  const mv = (n, h, from, to) => ({ at: d(n, h), by: "moi", type: "move", text: LBL[from] + " → " + LBL[to] });
+  const cr = (n, col) => ({ at: d(n), by: "moi", type: "create", text: "Créée dans " + LBL[col] });
+  const card = (id, title, column, order, extra) => { store.items[id] = { boardId: "b1", title, body: "", column, order, assignee: "", tags: [], links: [], due: "", dueTime: "", priority: 0, activity: [], history: [{ at: T, by: "moi", type: "create", text: "Créée dans " + LBL[column] }], archivedAt: "", archivedBy: "", by: "moi", createdAt: T, updatedAt: T, ...extra }; };
+  card("a1", "Mantis 11377 — Suggestions de liens : filtrer par taxonomie", "todo", 1000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi", blockedBy: ["a7"], createdAt: d(12), history: [cr(12, "todo")], body: "- [ ] Relire la spec\n- [ ] Chiffrer\n- [x] Accuser réception" });
+  card("a2", "Mantis 11378 — Transcription : paragraphes via retour chariot", "todo", 2000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi", blockedBy: ["a4"], createdAt: d(9), history: [cr(9, "todo")] });
+  card("a3", "Relire le mail de Paul « Rubedo + Redway »", "todo", 3000, { tags: ["RubWay"], priority: 2, assignee: "claude", blockedBy: ["zz"], createdAt: d(3), history: [cr(3, "todo")], links: [{ url: "https://mail.google.com/", label: "Gmail" }] });
+  card("a4", "SDP 96786 — Liseuse : liens des grilles de jeux décalés", "doing", 1000, { tags: ["Liseuse", "sdp"], priority: 1, assignee: "moi", due: "2026-10-01", createdAt: d(10), history: [cr(10, "todo"), mv(8, 9, "todo", "doing"), mv(8, 9, "doing", "todo"), mv(7, 14, "todo", "doing")] });
+  card("a5", "MEP mensuelle", "doing", 2000, { tags: ["mep"], assignee: "claude", body: "- [x] build\n- [ ] deploy\n- [ ] test", due: "2026-10-20", dueTime: "09:00", createdAt: d(6), history: [cr(6, "todo"), mv(2, 11, "todo", "doing")] });
+  card("a6", "Spool2xfr : suivi recette", "doing", 3000, { tags: ["Cloudinary"], assignee: "moi", activity: [{ at: T, by: "claude", text: "Recette passée sur QA, reste la prod." }], createdAt: d(14), history: [cr(14, "todo"), mv(13, 15, "todo", "doing")] });
+  card("a7", "Nouveau fichier de config appli V4", "done", 1000, { tags: ["Eidos"], assignee: "claude", doneAt: d(4, 17), createdAt: d(11), history: [cr(11, "todo"), mv(9, 10, "todo", "doing"), mv(4, 17, "doing", "done")] });
+  card("a8", "Ancien ticket réglé", "done", 2000, { tags: ["mantis"], createdAt: d(15), doneAt: d(6, 16), archivedAt: d(1, 9), history: [cr(15, "todo"), mv(12, 10, "todo", "doing"), mv(6, 16, "doing", "done"), { at: d(1, 9), by: "moi", type: "archive", text: "Archivée" }] });
+  card("a9", "Importé sans historique", "todo", 4000, { tags: ["sdp"], createdAt: d(20), history: [] });
   store.tags.liseuse = { name: "Liseuse", hue: 218, updatedAt: T, by: "moi" };
   store.views.v1 = { boardId: "b1", name: "Albedo", order: 10, state: { view: "cols", q: "Albedo", who: "", late: false, cols: [], prio: [], arch: false, sort: "", dir: "" }, createdAt: T, updatedAt: T, by: "moi" };
   store.views.v2 = { boardId: "b1", name: "P1 en liste", order: 20, state: { view: "list", q: "", who: "", late: false, cols: [], prio: ["1"], arch: false, sort: "updated", dir: "desc" }, createdAt: T, updatedAt: T, by: "moi" };

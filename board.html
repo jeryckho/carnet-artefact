@@ -243,7 +243,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   box-shadow: 0 8px 28px rgba(0, 0, 0, .18); padding: 6px; display: grid; gap: 2px;
 }
 .menu-item { display: flex; align-items: center; gap: 4px; }
-.menu-item > .mi { all: unset; flex: 1; min-width: 0; cursor: pointer; padding: 6px 8px; border-radius: 5px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-item > .mi { all: unset; flex: 1; min-width: 0; cursor: pointer; padding: 6px 8px; border-radius: 5px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.menu-item kbd { margin-left: auto; font: 10px/1.5 var(--mono); color: var(--muted); border: 1px solid var(--line-strong); border-radius: 3px; padding: 0 4px; }
+#view-btn { font-weight: 500; }
+#view-btn .caret { color: var(--muted); font-size: 11px; }
+#view-btn[aria-expanded="true"], #who-btn[aria-expanded="true"] { border-color: var(--ink); }
+#who-btn .caret { color: var(--muted); font-size: 11px; }
+#who-btn.active { border-color: var(--t-active); background: color-mix(in srgb, var(--t-active) 12%, var(--surface)); font-weight: 500; }
 .menu-item > .mi:hover, .menu-item > .mi:focus-visible { background: var(--surface-2); }
 .menu-item.on > .mi { color: var(--claude); font-weight: 500; }
 .menu-item.on > .mi::before { content: "✓ "; }
@@ -676,6 +682,47 @@ a.chip { text-decoration: none; }
 .wk-row.is-done .ag-title { text-decoration: line-through; }
 .wk-time { flex: none; width: 44px; font: 12px/1.7 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .wk-none { color: var(--muted); font-size: 13px; opacity: .7; padding-left: 2px; }
+/* ---------- vue Chronologie ---------- */
+.tl-wrap { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.tl-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-size: 13px; }
+.tl-tools .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tl-tools .chk input { margin: 0; accent-color: var(--claude); }
+.tl-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-left: auto; }
+.tl-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; background: var(--tone); }
+.tl-legend i.unknown { background: repeating-linear-gradient(45deg, var(--line-strong) 0 3px, transparent 3px 6px); }
+.tl-legend .due-l { color: var(--t-alert); }
+.tl-grid2 { display: grid; grid-template-columns: minmax(170px, 300px) 1fr; flex: 1; min-height: 0; }
+.tl-names { border-right: 1px solid var(--line); background: var(--surface-2); }
+.tl-head { height: 42px; border-bottom: 1px solid var(--line-strong); background: var(--surface-2); }
+.tl-names .tl-head { padding: 0 10px; display: flex; align-items: center; font: 500 11px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.tl-names .tl-row { height: 34px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; overflow: hidden; white-space: nowrap; cursor: pointer; }
+.tl-names .tl-row:hover, .tl-names .tl-row:focus-visible { background: var(--surface); }
+.tl-names .ref { font: 11px var(--mono); color: var(--muted); }
+.tl-names .t { overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.tl-names .arch .t { color: var(--muted); font-style: italic; }
+.tl-names .stat { margin-left: auto; font: 500 11px var(--mono); color: var(--t-wait); white-space: nowrap; }
+.tl-scroll { overflow-x: auto; }
+.tl-lanes { position: relative; min-width: 100%; }
+.tl-days { display: flex; }
+.tl-day { flex: none; border-right: 1px solid var(--line); font: 11px var(--mono); color: var(--muted); padding: 4px 4px 0; overflow: hidden; white-space: nowrap; }
+.tl-day.we, .tl-grid i.we { background: rgba(0, 0, 0, .05); }
+.tl-day.today { color: var(--claude); font-weight: 500; }
+.tl-lanes .tl-row { position: relative; height: 34px; border-bottom: 1px solid var(--line); }
+.tl-grid { position: absolute; inset: 0; display: flex; pointer-events: none; }
+.tl-grid i { flex: none; border-right: 1px solid var(--line); height: 100%; }
+.tl-bar { position: absolute; top: 9px; height: 16px; border-radius: 3px; min-width: 2px; opacity: .9; background: var(--tone); }
+.tl-bar:hover { outline: 2px solid var(--ink); z-index: 2; }
+.tl-bar.unknown { background: repeating-linear-gradient(45deg, var(--line-strong) 0 4px, transparent 4px 8px); opacity: .6; }
+.tl-due { position: absolute; top: 4px; width: 0; height: 26px; border-left: 2px dashed var(--t-alert); }
+.tl-due::after { content: "⚑"; position: absolute; left: 2px; top: -4px; font-size: 11px; color: var(--t-alert); }
+.tl-arch { position: absolute; top: 7px; width: 0; height: 20px; border-left: 2px solid var(--muted); }
+.tl-arch::after { content: "▣"; position: absolute; left: 3px; top: 1px; font-size: 10px; color: var(--muted); }
+.tl-today { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--claude); z-index: 3; pointer-events: none; }
+.tl-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 2; }
+.tl-arrows path { fill: none; stroke: var(--claude); stroke-width: 1.5; }
+.tl-arrows circle { fill: var(--claude); }
+.tl-note { padding: 10px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: var(--surface-2); }
+.tl-tip { position: fixed; z-index: 50; background: var(--ink); color: var(--bg); padding: 6px 9px; border-radius: 6px; font-size: 12px; max-width: 320px; pointer-events: none; }
 #tools-more { display: none; }
 .theme-btn { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; font-size: 12px; }
 .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
@@ -708,18 +755,22 @@ a.chip { text-decoration: none; }
 </header>
 
 <div class="tools" id="tools" hidden>
-  <div class="seg" role="group" aria-label="Vue">
-    <button type="button" data-view="cols" aria-pressed="true" title="Colonnes (C)">Colonnes</button>
-    <button type="button" data-view="list" aria-pressed="false" title="Liste (L)">Liste</button>
-    <button type="button" data-view="agenda" aria-pressed="false">Agenda</button>
-    <button type="button" data-view="week" aria-pressed="false">Semaine</button>
-    <button type="button" data-view="contacts" id="v-contacts" aria-pressed="false" hidden>Contacts</button>
-  </div>
+  <span class="menu-wrap" id="view-wrap">
+    <button type="button" class="btn" id="view-btn" aria-haspopup="menu" aria-expanded="false" title="Changer de vue"><span id="view-btn-txt">Colonnes</span> <span class="caret">▾</span></button>
+    <div class="menu" id="view-menu" role="menu" aria-label="Vue" hidden>
+      <div class="menu-item"><button type="button" class="mi" role="menuitem" data-view="cols" aria-pressed="true">Colonnes<kbd>C</kbd></button></div>
+      <div class="menu-item"><button type="button" class="mi" role="menuitem" data-view="list" aria-pressed="false">Liste<kbd>L</kbd></button></div>
+      <div class="menu-item"><button type="button" class="mi" role="menuitem" data-view="agenda" aria-pressed="false">Agenda</button></div>
+      <div class="menu-item"><button type="button" class="mi" role="menuitem" data-view="week" aria-pressed="false">Semaine</button></div>
+      <div class="menu-item"><button type="button" class="mi" role="menuitem" data-view="timeline" aria-pressed="false">Chronologie<kbd>T</kbd></button></div>
+      <div class="menu-item" hidden><button type="button" class="mi" role="menuitem" data-view="contacts" id="v-contacts" aria-pressed="false">Contacts</button></div>
+    </div>
+  </span>
   <span class="menu-wrap" id="views-wrap"><button type="button" class="btn" id="views-btn" aria-haspopup="menu" aria-expanded="false" title="Vues enregistrées : filtres et tri nommés">Vues</button><div class="menu" id="views-menu" role="menu" hidden></div></span>
   <button type="button" class="btn" id="tools-more" aria-expanded="false">Filtres</button>
   <span class="filter-state" id="filter-state" role="status" hidden><span id="filter-state-txt"></span><button type="button" id="filter-clear" title="Retirer tous les filtres">Tout afficher</button></span>
   <input class="search t-extra" id="q" type="search" placeholder="Filtrer : titre, texte, étiquette, réf." aria-label="Filtrer" title="Filtrer (/)">
-  <div class="seg t-extra" role="group" aria-label="Personne" id="who-seg"></div>
+  <span class="menu-wrap t-extra" id="who-seg"><button type="button" class="btn" id="who-btn" aria-haspopup="menu" aria-expanded="false" title="Filtrer par personne"><span id="who-btn-txt">Tous</span> <span class="caret">▾</span></button><div class="menu" id="who-menu" role="menu" aria-label="Personne" hidden></div></span>
   <button type="button" class="btn seg-btn t-extra" id="late" aria-pressed="false">En retard</button>
   <span class="spacer"></span>
   <button type="button" class="btn ghost t-extra" id="board-settings">Réglages du tableau</button>
@@ -860,6 +911,7 @@ a.chip { text-decoration: none; }
         <label><input type="checkbox" data-v="list">Liste</label>
         <label><input type="checkbox" data-v="agenda">Agenda</label>
         <label><input type="checkbox" data-v="week">Semaine</label>
+        <label><input type="checkbox" data-v="timeline">Chronologie</label>
       </div>
       <span class="hint">Décocher masque la vue sur ce tableau seulement. Une vue retirée dans les réglages de l'instance reste absente ici.</span>
     </fieldset>
@@ -902,6 +954,7 @@ a.chip { text-decoration: none; }
         <label><input type="checkbox" data-v="list">Liste</label>
         <label><input type="checkbox" data-v="agenda">Agenda</label>
         <label><input type="checkbox" data-v="week">Semaine</label>
+        <label><input type="checkbox" data-v="timeline">Chronologie</label>
         <label><input type="checkbox" data-v="contacts">Contacts</label>
       </div>
       <span class="hint">Une vue décochée disparaît du sélecteur sur tous les tableaux. Contacts active aussi le champ Contact des cartes.</span>
@@ -965,7 +1018,7 @@ a.chip { text-decoration: none; }
     boards: [], items: [], all: [], boardId: null,
     refIndex: new Map(), citedBy: new Map(), blocks: new Map(),
     view: "cols", q: "", who: "", late: false, sort: "updated",
-    fCols: new Set(), fPrio: new Set(), fArch: false, fFree: false, fBlocked: false, expanded: new Set(),
+    fCols: new Set(), fPrio: new Set(), fArch: false, fFree: false, fBlocked: false, tlArch: false, expanded: new Set(),
     ready: false, dragging: null, dragTab: null, tabOrder: null, viewInit: false, showArchBoards: false, canAdmin: true, pendingRender: false,
     views: [], editing: null, editingBoard: null
   };
@@ -979,7 +1032,7 @@ a.chip { text-decoration: none; }
   // Sans préférence : l'ancienne clé globale `view` sert de valeur de départ,
   // sinon agenda sur téléphone, colonnes ailleurs. Contacts, hors tableau,
   // n'est jamais mémorisée : on revient à la vue du tableau en la quittant.
-  const VIEWS = ["cols", "list", "agenda", "week", "contacts"];
+  const VIEWS = ["cols", "list", "agenda", "week", "timeline", "contacts"];
   const isMobile = () => !!(window.matchMedia && matchMedia("(max-width: 560px)").matches);
   // Vues autorisées : l'instance (`settings/app.views`) décide, un tableau peut
   // en retirer (`views` sur le tableau, jamais en ajouter). Colonnes toujours.
@@ -1472,9 +1525,12 @@ a.chip { text-decoration: none; }
     if (S.view !== "cols" && !canView(S.view, S.boardId) && S.loaded.contacts && S.loaded.cfg) S.view = "cols";
     const inContacts = S.view === "contacts";
     document.querySelectorAll("[data-view]").forEach((b) => {
-      b.setAttribute("aria-pressed", b.dataset.view === S.view);
-      b.hidden = !canView(b.dataset.view, S.boardId);
+      const on = b.dataset.view === S.view, w = b.closest(".menu-item") || b;
+      b.setAttribute("aria-pressed", on);
+      w.hidden = !canView(b.dataset.view, S.boardId);
+      w.classList.toggle("on", on);
     });
+    $("#view-btn-txt").textContent = VIEW_LABELS[S.view] || "Colonnes";
     $("#settings-btn").hidden = !S.canAdmin;
     ["#who-seg", "#late", "#board-settings", "#add-card", "#views-wrap"].forEach((s) => { $(s).hidden = inContacts; });
     if (inContacts) closeViewsMenu();
@@ -1514,6 +1570,7 @@ a.chip { text-decoration: none; }
       board: main.querySelector(".board")?.scrollLeft,
       list: main.querySelector(".list-wrap")?.scrollTop,
       ag: main.querySelector(".ag-wrap")?.scrollTop,
+      tlx: main.querySelector(".tl-scroll")?.scrollLeft, tly: main.querySelector(".tl-wrap")?.scrollTop,
       // Fiche ouverte : sa position à l'écran, pour la suivre si elle change de section.
       open: main.querySelector(".ag-item.is-open")?.getBoundingClientRect().top,
       openId: main.querySelector(".ag-item.is-open")?.dataset.id,
@@ -1523,8 +1580,11 @@ a.chip { text-decoration: none; }
     else if (S.view === "agenda") renderAgenda(main);
     else if (S.view === "week") renderWeek(main);
     else if (S.view === "contacts") renderContacts(main);
+    else if (S.view === "timeline") renderTimeline(main);
     else renderCols(main);
     const a = main.querySelector(".ag-wrap"); if (a && scroll.ag != null) a.scrollTop = scroll.ag;
+    const tx = main.querySelector(".tl-scroll"); if (tx && scroll.tlx != null) tx.scrollLeft = scroll.tlx;
+    const ty = main.querySelector(".tl-wrap"); if (ty && scroll.tly != null) ty.scrollTop = scroll.tly;
     // Changer la date, la colonne ou l'étoile déplace la fiche dans la liste :
     // on la garde au même endroit de l'écran.
     const openEl = main.querySelector(".ag-item.is-open");
@@ -1547,12 +1607,19 @@ a.chip { text-decoration: none; }
     const names = [...new Set(S.items.filter((it) => !isArch(it)).map((it) => it.assignee).filter((a) => a && a !== "moi" && a !== "claude"))]
       .sort((a, z) => a.localeCompare(z, "fr"));
     const hasClaude = S.all.some((it) => it.assignee === "claude") || S.boards.some((b) => b.preset === "queue");
-    const opts = [["", "Tous"], ["moi", "Moi"], ...(hasClaude ? [["claude", "Claude"]] : []), ...names.map((n) => [n, n]), ["none", "Personne"]];
+    const opts = [["", "Tous"], ["moi", "Moi"], ...(hasClaude ? [["claude", "Claude"]] : []), ...names.map((n) => [n, n]), ["none", "Sans personne"]];
     if (!opts.some(([v]) => v === S.who)) S.who = "";
-    const seg = $("#who-seg");
-    seg.innerHTML = opts.map(([v, l]) => `<button type="button" data-who="${esc(v)}" aria-pressed="${v === S.who}">${esc(l)}</button>`).join("");
-    seg.querySelectorAll("button").forEach((b) => b.onclick = () => { S.who = b.dataset.who; render(); });
+    const menu = $("#who-menu"), open = !menu.hidden;
+    menu.innerHTML = opts.map(([v, l]) => `<div class="menu-item${v === S.who ? " on" : ""}"><button type="button" class="mi" role="menuitem" data-who="${esc(v)}" aria-pressed="${v === S.who}">${esc(l)}</button></div>`).join("");
+    menu.querySelectorAll("[data-who]").forEach((b) => b.onclick = () => { S.who = b.dataset.who; closeWhoMenu(); render(); });
+    $("#who-btn-txt").textContent = S.who ? (S.who === "none" ? "Sans personne" : whoOut(S.who)) : "Tous";
+    $("#who-btn").classList.toggle("active", !!S.who);
+    menu.hidden = !open;
   }
+  function closeWhoMenu() { $("#who-menu").hidden = true; $("#who-btn").setAttribute("aria-expanded", "false"); }
+  $("#who-btn").onclick = (e) => { e.stopPropagation(); const m = $("#who-menu"); m.hidden = !m.hidden; $("#who-btn").setAttribute("aria-expanded", String(!m.hidden)); if (!m.hidden) { closeViewMenu(); closeViewsMenu(); } };
+  document.addEventListener("click", (e) => { if (!$("#who-menu").hidden && !e.target.closest("#who-seg")) closeWhoMenu(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#who-menu").hidden) { closeWhoMenu(); $("#who-btn").focus(); } });
 
   // Filtres de la vue liste : rien de coché = tout afficher.
   function renderFilters() {
@@ -1716,7 +1783,7 @@ a.chip { text-decoration: none; }
   function visibleItems() {
     const q = S.q.trim().toLowerCase();
     // Archivées : jamais en colonnes ; en liste, via la pastille ou une recherche.
-    const showArch = S.view === "list" && (S.fArch || !!q);
+    const showArch = (S.view === "list" && (S.fArch || !!q)) || (S.view === "timeline" && S.tlArch);
     return S.items.filter((it) => {
       if (isArch(it) ? !showArch : S.view === "list" && S.fArch) return false;
       if (S.who === "none" ? !!it.assignee : S.who && it.assignee !== S.who) return false;
@@ -2158,6 +2225,107 @@ a.chip { text-decoration: none; }
     if (rows.length === 1) { toast("Aucune tâche datée à exporter."); return; }
     try { await S.dl.save({ filename: "agenda.csv", data: rows.join("\r\n") }); }
     catch (e) { if (!(e && e.code === "declined")) toast("Export impossible dans cette vue."); }
+  }
+
+  // ---------- vue Chronologie ----------
+  // Gantt vécu : une barre par carte, découpée par colonne traversée d'après
+  // l'historique (create / move). Sans historique, hachures depuis la création.
+  const TL_ROW = 34, TL_HEAD = 42, TL_DAY = 86400000;
+  const tlLabel = (s) => String(s || "").split(" / ").pop().replace(/[«»]/g, "").trim();
+  function tlSegments(it, cols, nowT) {
+    const byLabel = (l) => cols.find((c) => c.label === l || c.id === l) || null;
+    const h = (Array.isArray(it.history) ? it.history : []).filter((e) => e && (e.type === "create" || e.type === "move") && e.at).sort((a, z) => String(a.at).localeCompare(String(z.at)));
+    const start = Date.parse(it.createdAt || "") || (h[0] && Date.parse(h[0].at)) || nowT;
+    const end = isArch(it) ? (Date.parse(it.archivedAt) || nowT) : nowT;
+    const raw = [];
+    let cur = null, t = start, known = false;
+    for (const e of h) {
+      const at = Date.parse(e.at); if (!isFinite(at)) continue;
+      if (e.type === "create") { const m = String(e.text || "").match(/Créée dans (.+)$/); cur = m ? byLabel(tlLabel(m[1])) : null; known = !!cur; t = at; continue; }
+      const m = String(e.text || "").match(/^(.+?) → (.+)$/); if (!m) continue;
+      const from = byLabel(tlLabel(m[1])), to = byLabel(tlLabel(m[2]));
+      if (!cur && from) { cur = from; known = true; }
+      raw.push({ from: t, to: Math.max(t, at), col: cur, known });
+      cur = to; known = !!to; t = at;
+    }
+    if (!cur) { cur = cols.find((c) => c.id === it.column) || null; known = false; }
+    raw.push({ from: t, to: Math.max(t, end), col: cur, known: h.length ? known : false });
+    // Passages éclair (< 1 h : glisser-déposer hésitant) fondus dans le précédent ;
+    // segments contigus de même colonne réunis.
+    const out = [];
+    raw.forEach((sg, i) => {
+      const last = out[out.length - 1];
+      if (last && i < raw.length - 1 && sg.to - sg.from < 3600000) { last.to = sg.to; last.merged = (last.merged || 0) + 1; return; }
+      if (last && last.col && sg.col && last.col.id === sg.col.id && last.known === sg.known) { last.to = sg.to; return; }
+      out.push({ ...sg });
+    });
+    return out;
+  }
+  const tlDur = (ms) => ms < 3600000 ? Math.max(1, Math.round(ms / 60000)) + " min" : ms < TL_DAY ? Math.round(ms / 3600000) + " h" : (ms / TL_DAY).toFixed(ms < 3 * TL_DAY ? 1 : 0) + " j";
+  const tlStamp = (t) => new Date(t).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  function renderTimeline(main) {
+    const b = board(); if (!b) { main.innerHTML = ""; return; }
+    const cols = columnsOf(b), nowT = Date.now();
+    const z = [22, 44, 80].includes(Number(pref.get("tl.z"))) ? Number(pref.get("tl.z")) : 44;
+    const sort = ["created", "column", "wait"].includes(pref.get("tl.sort")) ? pref.get("tl.sort") : "created";
+    const rows = visibleItems().map((it) => ({ it, segs: tlSegments(it, cols, nowT) }));
+    const waitOf = (r) => r.segs.filter((sg) => sg.col && (sg.col.tone === "wait" || sg.col.tone === "idle")).reduce((m, sg) => m + (sg.to - sg.from), 0);
+    const ids = cols.map((c) => c.id);
+    rows.sort((a, c) => sort === "created" ? String(a.it.createdAt || "").localeCompare(String(c.it.createdAt || ""))
+      : sort === "column" ? ids.indexOf(a.it.column) - ids.indexOf(c.it.column) || String(a.it.createdAt || "").localeCompare(String(c.it.createdAt || ""))
+      : waitOf(c) - waitOf(a));
+    const segHTML = (id, opts, cur) => `<div class="seg" role="group" id="${id}">${opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${String(v) === String(cur)}">${l}</button>`).join("")}</div>`;
+    const tools = `<div class="tl-tools">${segHTML("tl-zoom", [[22, "Serré"], [44, "Jour"], [80, "Large"]], z)}${segHTML("tl-sort", [["created", "Création"], ["column", "Colonne"], ["wait", "Temps d'attente"]], sort)}<label class="chk"><input type="checkbox" id="tl-arch"${S.tlArch ? " checked" : ""}> archivées</label><span class="tl-legend">${cols.map((c) => `<span><i data-tone="${TONES.includes(c.tone) ? c.tone : "neutral"}"></i>${esc(c.label)}</span>`).join("")}<span><i class="unknown"></i>parcours inconnu</span><span class="due-l">⚑ échéance</span></span></div>`;
+    if (!rows.length) { main.innerHTML = `<div class="tl-wrap">${tools}<div class="notice"><p>${S.items.some((it) => !isArch(it)) ? "Aucune carte ne correspond au filtre." : "Ce tableau est vide."}</p></div></div>`; wireTimeline(main); return; }
+    const dueT = (it) => it.due ? Date.parse(it.due + "T12:00:00") : 0;
+    const d0 = new Date(Math.min(...rows.map((r) => r.segs[0].from), nowT) - TL_DAY); d0.setHours(0, 0, 0, 0);
+    const t1 = Math.max(...rows.map((r) => Math.max(r.segs[r.segs.length - 1].to, dueT(r.it))), nowT) + 2 * TL_DAY;
+    const days = Math.max(1, Math.ceil((t1 - d0.getTime()) / TL_DAY));
+    const x = (t) => (t - d0.getTime()) / TL_DAY * z;
+    const todayStr = new Date(nowT).toDateString();
+    const dayCells = (head) => Array.from({ length: days }, (_, i) => {
+      const d = new Date(d0.getTime() + i * TL_DAY); const we = d.getDay() === 0 || d.getDay() === 6; const td = d.toDateString() === todayStr;
+      return head ? `<div class="tl-day${we ? " we" : ""}${td ? " today" : ""}" style="width:${z}px">${z >= 44 ? d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }) : d.getDate()}</div>` : `<i class="${we ? "we" : ""}" style="width:${z}px"></i>`;
+    }).join("");
+    const grid = dayCells(false);
+    const names = rows.map((r) => { const w = waitOf(r); return `<div class="tl-row${isArch(r.it) ? " arch" : ""}" data-id="${esc(r.it.id)}" tabindex="0" role="button"><span class="ref">${esc(refOf(r.it.id))}</span><span class="t" title="${esc(r.it.title || "")}">${esc(r.it.title || "(sans titre)")}</span>${w > 2 * TL_DAY ? `<span class="stat" title="Temps cumulé en attente ou en sommeil">${tlDur(w)}</span>` : ""}</div>`; }).join("");
+    const lanes = rows.map((r) => {
+      const bars = r.segs.map((sg) => `<div class="tl-bar${sg.known && sg.col ? "" : " unknown"}"${sg.known && sg.col ? ` data-tone="${TONES.includes(sg.col.tone) ? sg.col.tone : "neutral"}"` : ""} style="left:${x(sg.from)}px;width:${Math.max(2, x(sg.to) - x(sg.from))}px" data-tip="${esc(`${sg.col ? sg.col.label : "?"}${sg.known ? "" : " (parcours inconnu : pas d'historique)"} · ${tlStamp(sg.from)} → ${!isArch(r.it) && sg.to >= nowT - 1000 ? "maintenant" : tlStamp(sg.to)} · ${tlDur(sg.to - sg.from)}${sg.merged ? ` · ${sg.merged} passage${sg.merged > 1 ? "s" : ""} éclair fondu${sg.merged > 1 ? "s" : ""}` : ""}`)}"></div>`).join("");
+      const due = dueT(r.it) ? `<div class="tl-due" style="left:${x(dueT(r.it))}px" data-tip="Échéance ${esc(dueLabel(r.it.due))}"></div>` : "";
+      const arch = isArch(r.it) ? `<div class="tl-arch" style="left:${x(Date.parse(r.it.archivedAt) || nowT)}px" data-tip="Archivée le ${esc(new Date(r.it.archivedAt).toLocaleDateString("fr-FR"))}"></div>` : "";
+      return `<div class="tl-row" data-id="${esc(r.it.id)}"><div class="tl-grid">${grid}</div>${bars}${due}${arch}</div>`;
+    }).join("");
+    // Flèches : une carte attend celles de `blockedBy` (quand elles sont dans la vue).
+    const idx = new Map(rows.map((r, i) => [refOf(r.it.id), i]));
+    const arrows = [];
+    rows.forEach((r, i) => depRefs(r.it).forEach((ref) => { if (idx.has(ref)) arrows.push([idx.get(ref), i]); }));
+    const svg = arrows.map(([f, t]) => {
+      const a = rows[f], c = rows[t];
+      const x1 = Math.min(x(a.segs[a.segs.length - 1].to), x(nowT)), y1 = TL_HEAD + f * TL_ROW + 17, x2 = x(c.segs[0].from) + 6, y2 = TL_HEAD + t * TL_ROW + 17, mid = x1 + 18;
+      return `<path d="M${x1},${y1} L${mid},${y1} L${mid},${y2} L${x2},${y2}"/><circle cx="${x2}" cy="${y2}" r="3"/>`;
+    }).join("");
+    const noHist = rows.filter((r) => !(Array.isArray(r.it.history) && r.it.history.length)).length;
+    main.innerHTML = `<div class="tl-wrap">${tools}
+      <div class="tl-grid2"><div class="tl-names"><div class="tl-head">Carte</div>${names}</div>
+      <div class="tl-scroll"><div class="tl-lanes" style="width:${days * z}px"><div class="tl-head tl-days">${dayCells(true)}</div>${lanes}<svg class="tl-arrows">${svg}</svg><div class="tl-today" style="left:${x(nowT)}px"></div></div></div></div>
+      <div class="tl-note">${rows.length} carte${rows.length > 1 ? "s" : ""}${noHist ? ` · ${noHist} sans historique (hachurée : colonne courante depuis la création)` : ""} · survoler une barre pour le détail, cliquer un titre pour ouvrir la carte.</div>
+      <div class="tl-tip" hidden></div></div>`;
+    wireTimeline(main);
+  }
+  function wireTimeline(main) {
+    main.querySelectorAll("#tl-zoom button").forEach((b) => b.onclick = () => { pref.set("tl.z", b.dataset.v); render(); });
+    main.querySelectorAll("#tl-sort button").forEach((b) => b.onclick = () => { pref.set("tl.sort", b.dataset.v); render(); });
+    const arch = main.querySelector("#tl-arch"); if (arch) arch.onchange = () => { S.tlArch = arch.checked; render(); };
+    main.querySelectorAll(".tl-names .tl-row").forEach((el) => {
+      const open = () => { const it = S.items.find((i) => i.id === el.dataset.id); if (it) openCard(it); };
+      el.onclick = open; el.onkeydown = (e) => { if (e.key === "Enter") open(); };
+    });
+    const tip = main.querySelector(".tl-tip"); if (!tip) return;
+    main.querySelectorAll("[data-tip]").forEach((el) => {
+      el.onmouseenter = () => { tip.textContent = el.dataset.tip; tip.hidden = false; };
+      el.onmousemove = (e) => { tip.style.left = Math.min(e.clientX + 12, innerWidth - 340) + "px"; tip.style.top = (e.clientY + 14) + "px"; };
+      el.onmouseleave = () => { tip.hidden = true; };
+    });
   }
 
   // ---------- vue Contacts ----------
@@ -3022,9 +3190,9 @@ a.chip { text-decoration: none; }
   };
 
   // ---------- réglages de l'instance (document settings/app) ----------
-  const VIEW_LABELS = { cols: "Colonnes", list: "Liste", agenda: "Agenda", week: "Semaine" };
+  const VIEW_LABELS = { cols: "Colonnes", list: "Liste", agenda: "Agenda", week: "Semaine", timeline: "Chronologie", contacts: "Contacts" };
   function fillDefaultSelects() {
-    const allowed = ["cols", "list", "agenda", "week"].filter((v) => v === "cols" || $(`#fs-views [data-v="${v}"]`).checked);
+    const allowed = ["cols", "list", "agenda", "week", "timeline"].filter((v) => v === "cols" || $(`#fs-views [data-v="${v}"]`).checked);
     const d = S.cfg.defaults && typeof S.cfg.defaults === "object" ? S.cfg.defaults : {};
     [["#fs-def-desktop", d.desktop || "cols"], ["#fs-def-mobile", d.mobile || "agenda"]].forEach(([sel, cur]) => {
       const el = $(sel), keep = el.value || cur;
@@ -3174,7 +3342,11 @@ a.chip { text-decoration: none; }
     }, (e) => { setStatus("error", "hors ligne"); if (e && e.code === "revoked") { S.db = null; render(); } });
   }
 
-  document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { setView(b.dataset.view); render(); });
+  document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { setView(b.dataset.view); closeViewMenu(); render(); });
+  function closeViewMenu() { $("#view-menu").hidden = true; $("#view-btn").setAttribute("aria-expanded", "false"); }
+  $("#view-btn").onclick = (e) => { e.stopPropagation(); const m = $("#view-menu"); m.hidden = !m.hidden; $("#view-btn").setAttribute("aria-expanded", String(!m.hidden)); if (!m.hidden) { closeViewsMenu(); closeWhoMenu(); } };
+  document.addEventListener("click", (e) => { if (!$("#view-menu").hidden && !e.target.closest("#view-wrap")) closeViewMenu(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#view-menu").hidden) { closeViewMenu(); $("#view-btn").focus(); } });
   $("#tools-more").onclick = () => { $("#tools-more").setAttribute("aria-expanded", String($("#tools").classList.toggle("open"))); };
   let qTimer;
   $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value; render(); }, 120); });
@@ -3195,7 +3367,7 @@ a.chip { text-decoration: none; }
   const boardViews = () => S.views.filter((v) => v.boardId === S.boardId).sort((a, z) => (a.order ?? 0) - (z.order ?? 0) || String(a.name || "").localeCompare(String(z.name || ""), "fr"));
   function viewState() {
     const list = S.view === "list";
-    return { view: list ? "list" : "cols", q: S.q.trim(), who: S.who || "", late: !!S.late,
+    return { view: list ? "list" : S.view === "timeline" ? "timeline" : "cols", q: S.q.trim(), who: S.who || "", late: !!S.late,
       cols: list ? [...S.fCols].sort() : [], prio: list ? [...S.fPrio].map(String).sort() : [], arch: list ? !!S.fArch : false,
       free: list ? !!S.fFree : false, blocked: list ? !!S.fBlocked : false,
       sort: list ? S.sort : "", dir: list ? S.dir : "" };
@@ -3203,7 +3375,7 @@ a.chip { text-decoration: none; }
   const stateKey = (st) => {
     st = st && typeof st === "object" ? st : {};
     const list = st.view === "list";
-    return JSON.stringify([list ? "list" : "cols", String(st.q || "").trim(), st.who || "", !!st.late,
+    return JSON.stringify([list ? "list" : st.view === "timeline" ? "timeline" : "cols", String(st.q || "").trim(), st.who || "", !!st.late,
       list ? [...(st.cols || [])].sort() : [], list ? [...(st.prio || [])].map(String).sort() : [], list ? !!st.arch : false,
       list ? !!st.free : false, list ? !!st.blocked : false,
       list ? (st.sort || "updated") : "", list ? (st.dir === "asc" ? "asc" : "desc") : ""]);
@@ -3211,7 +3383,7 @@ a.chip { text-decoration: none; }
   function currentSavedView() { const k = stateKey(viewState()); return boardViews().find((v) => stateKey(v.state) === k) || null; }
   function applyView(v) {
     const st = v.state && typeof v.state === "object" ? v.state : {};
-    setView(st.view === "list" && canView("list", S.boardId) ? "list" : "cols");
+    setView((st.view === "list" || st.view === "timeline") && canView(st.view, S.boardId) ? st.view : "cols");
     S.q = String(st.q || "").trim(); $("#q").value = S.q;
     S.who = st.who || ""; S.late = !!st.late;
     S.fCols = new Set(st.cols || []); S.fPrio = new Set((st.prio || []).map(String)); S.fArch = !!st.arch;
@@ -3235,6 +3407,7 @@ a.chip { text-decoration: none; }
   }
   function closeViewsMenu() { $("#views-menu").hidden = true; $("#views-btn").setAttribute("aria-expanded", "false"); }
   function openViewsMenu() {
+    closeViewMenu(); closeWhoMenu();
     const menu = $("#views-menu"), cur = currentSavedView();
     const list = boardViews();
     menu.innerHTML = (list.length ? list.map((v) => `<div class="menu-item${cur && cur.id === v.id ? " on" : ""}"><button type="button" class="mi" role="menuitem" data-apply="${esc(v.id)}" title="${esc(describeView(v.state))}">${esc(v.name || "(sans nom)")}</button><button type="button" class="del" data-delv="${esc(v.id)}" title="Supprimer cette vue">✕</button></div>`).join("")
@@ -3259,6 +3432,7 @@ a.chip { text-decoration: none; }
     st = st && typeof st === "object" ? st : {};
     const parts = [];
     if (st.view === "list") parts.push("Liste");
+    if (st.view === "timeline") parts.push("Chronologie");
     if (st.q) parts.push(`« ${st.q} »`);
     if (st.who) parts.push(st.who === "none" ? "sans personne" : whoOut(st.who));
     if (st.late) parts.push("en retard");
@@ -3289,6 +3463,7 @@ a.chip { text-decoration: none; }
     else if (k === "/") { const q = $("#q"); if (q.offsetParent === null) { $("#tools").classList.add("open"); $("#tools-more").setAttribute("aria-expanded", "true"); } q.focus(); q.select(); }
     else if (k === "l") { if (!canView("list", S.boardId)) return; setView("list"); render(); }
     else if (k === "c") { setView("cols"); render(); }
+    else if (k === "t") { if (!canView("timeline", S.boardId)) return; setView("timeline"); render(); }
     else return;
     e.preventDefault();
   });
