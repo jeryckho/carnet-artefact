@@ -54,9 +54,9 @@ STUB = r'''<!doctype html><html><head><meta charset=utf8><meta name=viewport con
   store.boards.b1.columns = [cols[0], { ...cols[1], limit: 2 }, cols[2]];
   const T = new Date().toISOString();
   const card = (id, title, column, order, extra) => { store.items[id] = { boardId: "b1", title, body: "", column, order, assignee: "", tags: [], links: [], due: "", dueTime: "", priority: 0, activity: [], history: [{ at: T, by: "moi", type: "create", text: "Créée dans " + column }], archivedAt: "", archivedBy: "", by: "moi", createdAt: T, updatedAt: T, ...extra }; };
-  card("a1", "Mantis 11377 — Suggestions de liens : filtrer par taxonomie", "todo", 1000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi", body: "- [ ] Relire la spec\n- [ ] Chiffrer\n- [x] Accuser réception" });
-  card("a2", "Mantis 11378 — Transcription : paragraphes via retour chariot", "todo", 2000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi" });
-  card("a3", "Relire le mail de Paul « Rubedo + Redway »", "todo", 3000, { tags: ["RubWay"], priority: 2, assignee: "claude", links: [{ url: "https://mail.google.com/", label: "Gmail" }] });
+  card("a1", "Mantis 11377 — Suggestions de liens : filtrer par taxonomie", "todo", 1000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi", blockedBy: ["a7"], body: "- [ ] Relire la spec\n- [ ] Chiffrer\n- [x] Accuser réception" });
+  card("a2", "Mantis 11378 — Transcription : paragraphes via retour chariot", "todo", 2000, { tags: ["Albedo", "mantis"], priority: 1, assignee: "moi", blockedBy: ["a4"] });
+  card("a3", "Relire le mail de Paul « Rubedo + Redway »", "todo", 3000, { tags: ["RubWay"], priority: 2, assignee: "claude", blockedBy: ["zz"], links: [{ url: "https://mail.google.com/", label: "Gmail" }] });
   card("a4", "SDP 96786 — Liseuse : liens des grilles de jeux décalés", "doing", 1000, { tags: ["Liseuse", "sdp"], priority: 1, assignee: "moi", due: "2026-10-01" });
   card("a5", "MEP mensuelle", "doing", 2000, { tags: ["mep"], assignee: "claude", body: "- [x] build\n- [ ] deploy\n- [ ] test", due: "2026-10-20", dueTime: "09:00" });
   card("a6", "Spool2xfr : suivi recette", "doing", 3000, { tags: ["Cloudinary"], assignee: "moi", activity: [{ at: T, by: "claude", text: "Recette passée sur QA, reste la prod." }] });

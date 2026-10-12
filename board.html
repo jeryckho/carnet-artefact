@@ -419,6 +419,19 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 a.cref { font: 11px var(--mono); color: var(--claude); text-decoration: none; }
 a.cref:hover { text-decoration: underline; }
 .cited { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+/* dépendances entre cartes : « attend #réf » (orange tant que la carte bloquante n'est pas finie), « bloque #réf » */
+.deps { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.dep { font: 11px/1.6 var(--mono); padding: 0 6px; border-radius: 3px; border: 1px solid var(--line-strong); color: var(--muted); text-decoration: none; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.dep.active { color: #fff; background: var(--t-active); border-color: var(--t-active); }
+.dep.done { color: var(--t-done); border-color: var(--t-done); }
+.dep.missing { color: var(--t-alert); border-color: var(--t-alert); }
+.dep.blocks { border-style: dashed; }
+a.dep:hover { text-decoration: underline; }
+.tag-row .dep { cursor: default; }
+.tag-row .dep .x { all: unset; cursor: pointer; margin-left: 6px; padding: 0 3px; border-radius: 3px; }
+.dep-go { color: inherit; text-decoration: none; cursor: pointer; }
+.dep-go:hover { text-decoration: underline; }
+.tag-row .dep .x:hover { background: rgba(0, 0, 0, .15); }
 
 /* ---------- liste ---------- */
 .list-wrap { padding: 14px 16px 24px; overflow: auto; flex: 1; }
@@ -787,6 +800,12 @@ a.chip { text-decoration: none; }
       <div class="links-edit" id="fc-links"></div>
       <button type="button" class="btn ghost" id="fc-add-link" style="justify-self:start">+ Ajouter un lien</button>
     </div>
+    <div class="field">
+      <label for="fc-dep">Dépend de</label>
+      <div class="tag-row" id="fc-deps" hidden></div>
+      <input id="fc-dep" list="dep-list" placeholder="Référence (#abc123) ou début du titre d'une carte, puis Entrée" maxlength="120" autocomplete="off">
+      <span class="hint">Cette carte attend que les cartes citées soient finies (colonne « fait ») ou archivées. Tous tableaux confondus.</span>
+    </div>
     <div class="cited" id="fc-cited" hidden></div>
     <div class="stamp" id="fc-stamp"></div>
     <div class="dlg-actions">
@@ -908,6 +927,7 @@ a.chip { text-decoration: none; }
 <dialog id="dlg-pick" aria-label="Choisir"><div id="pick-body"></div></dialog>
 <datalist id="who-list"></datalist>
 <datalist id="contact-list"></datalist>
+<datalist id="dep-list"></datalist>
 
 <script>
 (() => {
@@ -943,9 +963,9 @@ a.chip { text-decoration: none; }
     cfg: {}, contacts: [], cById: new Map(), loaded: {},
     openId: null, openContact: null, bodyEdit: false, allDone: false, weekOffset: 0, today: "",
     boards: [], items: [], all: [], boardId: null,
-    refIndex: new Map(), citedBy: new Map(),
+    refIndex: new Map(), citedBy: new Map(), blocks: new Map(),
     view: "cols", q: "", who: "", late: false, sort: "updated",
-    fCols: new Set(), fPrio: new Set(), fArch: false, expanded: new Set(),
+    fCols: new Set(), fPrio: new Set(), fArch: false, fFree: false, fBlocked: false, expanded: new Set(),
     ready: false, dragging: null, dragTab: null, tabOrder: null, viewInit: false, showArchBoards: false, canAdmin: true, pendingRender: false,
     views: [], editing: null, editingBoard: null
   };
@@ -1289,6 +1309,12 @@ a.chip { text-decoration: none; }
         S.citedBy.get(r).add(own);
       }
     }
+    // Dépendances : sens inverse « bloque #… » recalculé, jamais stocké.
+    S.blocks = new Map();
+    for (const it of S.all) {
+      if (isArch(it)) continue;
+      for (const r of depRefs(it)) { if (!S.blocks.has(r)) S.blocks.set(r, new Set()); S.blocks.get(r).add(refOf(it.id)); }
+    }
     S.items = S.all.filter((it) => it.boardId === S.boardId);
     refreshLists();
   }
@@ -1296,6 +1322,32 @@ a.chip { text-decoration: none; }
     const set = S.citedBy.get(refOf(it.id));
     return set && set.size ? [...set].map((r) => `<a class="cref" href="#card-${esc(r)}" title="${esc((S.refIndex.get(r) || {}).title || "")}">#${esc(r)}</a>`).join(" ") : "";
   };
+  // ---------- dépendances entre cartes ----------
+  // `blockedBy: ["réf", …]` sur la carte qui attend. Une dépendance est levée
+  // quand la carte bloquante est dans une colonne « done » ou archivée.
+  const depRefs = (it) => Array.isArray(it && it.blockedBy) ? it.blockedBy.map((r) => String(r || "").trim()).filter(Boolean) : [];
+  const isSettled = (it) => isArch(it) || toneOf(it.boardId, it.column) === "done";
+  const depsOf = (it) => depRefs(it).map((ref) => { const t = S.refIndex.get(ref) || null; return { ref, it: t, active: !!t && !isSettled(t) }; });
+  const isBlocked = (it) => depsOf(it).some((d) => d.active);
+  const blocksOf = (it) => isSettled(it) ? [] : [...(S.blocks.get(refOf(it.id)) || [])];
+  // `from` dépend-elle (même indirectement) de `target` ? Sert à refuser les boucles.
+  function dependsOn(fromRef, targetRef, seen = new Set()) {
+    if (fromRef === targetRef) return true;
+    if (seen.has(fromRef)) return false;
+    seen.add(fromRef);
+    const it = S.refIndex.get(fromRef);
+    return !!it && depRefs(it).some((r) => dependsOn(r, targetRef, seen));
+  }
+  function depsHTML(it) {
+    const ds = depsOf(it), bs = blocksOf(it);
+    if (!ds.length && !bs.length) return "";
+    return `<div class="deps">${ds.map((d) => d.it
+      ? `<a class="dep ${d.active ? "active" : "done"}" href="#card-${esc(d.ref)}" title="${esc((d.active ? "Attend : " : "Levée : ") + (d.it.title || ""))}">${d.active ? "⛔" : "✓"} #${esc(d.ref)}</a>`
+      : `<span class="dep missing" title="Carte introuvable (supprimée ?)">#${esc(d.ref)} ?</span>`).join("")}${bs.map((r) => {
+      const t = S.refIndex.get(r);
+      return `<a class="dep blocks" href="#card-${esc(r)}" title="${esc("Bloque : " + (t ? t.title || "" : ""))}">bloque #${esc(r)}</a>`;
+    }).join("")}</div>`;
+  }
   const hostOf = (u) => { try { const x = new URL(u); return x.hostname.replace(/^www\./, "") + (x.pathname.length > 1 ? x.pathname.slice(0, 18) : ""); } catch { return u; } };
 
   let toastTimer;
@@ -1357,6 +1409,7 @@ a.chip { text-decoration: none; }
     if (p0 !== p1) ev.push({ type: "prio", text: p1 ? `Priorité ${p0 ? "P" + p0 + " → " : ""}P${p1}` : "Priorité retirée" });
     if (dueFull(cur) !== dueFull(data)) ev.push({ type: "due", text: data.due ? `Échéance ${cur.due ? dueFull(cur) + " → " : ""}${dueFull(data)}` : "Échéance retirée" });
     if ((cur.assignee || "") !== (data.assignee || "")) ev.push({ type: "assignee", text: `Assignée à ${whoLabel(data.assignee)}` });
+    if (data.blockedBy !== undefined && depRefs(cur).join() !== depRefs(data).join()) ev.push({ type: "deps", text: depRefs(data).length ? `Dépend de ${depRefs(data).map((r) => "#" + r).join(", ")}` : "Dépendances retirées" });
     return ev;
   }
   async function archiveWithUndo(id) {
@@ -1434,7 +1487,7 @@ a.chip { text-decoration: none; }
     // combien de cartes restent, avec un bouton pour tout retirer.
     const q = S.q.trim();
     $("#q").classList.toggle("active", !!q);
-    const listF = S.view === "list" && (S.fCols.size || S.fPrio.size || S.fArch);
+    const listF = S.view === "list" && (S.fCols.size || S.fPrio.size || S.fArch || S.fFree || S.fBlocked);
     const filtering = !inContacts && !!(q || S.who || S.late || listF);
     const fs = $("#filter-state");
     fs.hidden = !filtering;
@@ -1443,7 +1496,7 @@ a.chip { text-decoration: none; }
       if (q) parts.push(`« ${q} »`);
       if (S.who) parts.push(S.who === "none" ? "sans personne" : whoOut(S.who));
       if (S.late) parts.push("en retard");
-      if (listF) parts.push("filtres de la liste");
+      if (listF) parts.push(S.fFree && !S.fCols.size && !S.fPrio.size && !S.fArch ? "débloquées" : S.fBlocked && !S.fCols.size && !S.fPrio.size && !S.fArch ? "bloquées" : "filtres de la liste");
       const sv = currentSavedView();
       $("#filter-state-txt").textContent = `${n} carte${n > 1 ? "s" : ""} · ${sv ? `vue « ${sv.name} »` : parts.join(" · ")}`;
     }
@@ -1516,17 +1569,20 @@ a.chip { text-decoration: none; }
         chip("col", c.id, `<i class="sw"></i>${esc(c.label)}`, ` data-tone="${TONES.includes(c.tone) ? c.tone : "neutral"}"`, n((it) => it.column === c.id), S.fCols.has(c.id))).join("")}</div>
       <div class="fgroup"><span class="f-label">Priorité</span>${[["1", "P1"], ["2", "P2"], ["3", "P3"], ["0", "Aucune"]].map(([v, l]) =>
         chip("prio", v, v === "0" ? l : `<span class="prio" data-p="${v}">${l}</span>`, "", n((it) => String(prioOf(it)) === v), S.fPrio.has(v))).join("")}</div>
+      ${S.all.some((it) => depRefs(it).length) ? `<div class="fgroup"><span class="f-label">Dépendances</span>${chip("free", "1", "Débloquées", "", n((it) => !isBlocked(it)), S.fFree)}${chip("blocked", "1", "Bloquées", "", n((it) => isBlocked(it)), S.fBlocked)}</div>` : ""}
       <div class="fgroup">${chip("arch", "1", "Archivées", "", nArch, S.fArch)}</div>
-      ${S.fCols.size || S.fPrio.size || S.fArch ? `<button type="button" class="btn ghost" id="f-clear">Tout afficher</button>` : `<span class="f-hint">Aucun filtre : cartes actives affichées</span>`}`;
+      ${S.fCols.size || S.fPrio.size || S.fArch || S.fFree || S.fBlocked ? `<button type="button" class="btn ghost" id="f-clear">Tout afficher</button>` : `<span class="f-hint">Aucun filtre : cartes actives affichées</span>`}`;
     bar.hidden = false;
     bar.querySelectorAll(".chip").forEach((b) => b.onclick = () => {
       if (b.dataset.f === "arch") { S.fArch = !S.fArch; render(); return; }
+      if (b.dataset.f === "free") { S.fFree = !S.fFree; if (S.fFree) S.fBlocked = false; render(); return; }
+      if (b.dataset.f === "blocked") { S.fBlocked = !S.fBlocked; if (S.fBlocked) S.fFree = false; render(); return; }
       const set = b.dataset.f === "col" ? S.fCols : S.fPrio;
       set.has(b.dataset.v) ? set.delete(b.dataset.v) : set.add(b.dataset.v);
       render();
     });
     const clear = $("#f-clear");
-    if (clear) clear.onclick = () => { S.fCols.clear(); S.fPrio.clear(); S.fArch = false; render(); };
+    if (clear) clear.onclick = () => { S.fCols.clear(); S.fPrio.clear(); S.fArch = false; S.fFree = false; S.fBlocked = false; render(); };
   }
 
   function renderTabs() {
@@ -1667,6 +1723,8 @@ a.chip { text-decoration: none; }
       if (S.view === "list") {
         if (S.fCols.size && !S.fCols.has(it.column)) return false;
         if (S.fPrio.size && !S.fPrio.has(String(prioOf(it)))) return false;
+        if (S.fFree && isBlocked(it)) return false;
+        if (S.fBlocked && !isBlocked(it)) return false;
       }
       if (S.late && !isLate(it)) return false;
       if (!q) return true;
@@ -1701,7 +1759,7 @@ a.chip { text-decoration: none; }
     return `<article class="card${fresh ? " fresh" : ""}" draggable="true" data-id="${esc(it.id)}"${p ? ` data-prio="${p}"` : ""} data-comment-target>
       <div class="card-top"><h3 class="card-title">${esc(it.title || "(sans titre)")}</h3><button type="button" class="ref copy-ref" data-copy="${esc(refOf(it.id))}" title="Copier la référence">${esc(refOf(it.id))}</button></div>
       ${body}${it.body && (it.body.length > 180 || it.body.split("\n").length > 4) ? `<button class="more" data-more>${expanded ? "Réduire" : "Voir tout"}</button>` : ""}
-      ${linkHTML}
+      ${linkHTML}${depsHTML(it)}
       <div class="card-meta">${p ? `<span class="prio" data-p="${p}">P${p}</span>` : ""}${dueHTML(it, due)}${prog}${whoHTML(it.assignee)}${contactChips(contactOf(it))}${tags}<span class="ago${it.by === "claude" ? " by-claude" : ""}" data-ago="${esc(it.updatedAt || "")}" data-prefix="${byTxt}">${byTxt}${esc(ago(it.updatedAt))}</span></div>
       ${cited ? `<div class="cited">cité par ${cited}</div>` : ""}
       ${lastHTML}
@@ -1783,7 +1841,7 @@ a.chip { text-decoration: none; }
     main.innerHTML = `<div class="list-wrap">${items.length ? `<table class="list"><thead><tr>${th("ref", "Réf.")}${th("title", "Titre")}${th("column", "Colonne")}${th("prio", "Prio.")}${th("due", "Échéance")}${th("who", "Assignée")}${th("tags", "Étiquettes")}${th("updated", "Modifiée")}</tr></thead><tbody>
       ${items.map((it) => { const c = colOf(it.column); const p = prioOf(it); const due = dueInfo(it, c); const tk = tasksOf(it.body); return `<tr data-id="${esc(it.id)}" tabindex="0"${isArch(it) ? ' class="archived"' : ""}>
         <td class="ref">${esc(refOf(it.id))}</td>
-        <td>${isArch(it) ? `<span class="arch-badge" title="Archivée le ${esc(new Date(it.archivedAt).toLocaleDateString("fr-FR"))}">archivée</span> ` : ""}${esc(it.title || "(sans titre)")}${tk.t ? ` <span class="prog"><i><b style="width:${Math.round(100 * tk.d / tk.t)}%"></b></i>${tk.d}/${tk.t}</span>` : ""}${linksOf(it).length ? ` <span class="stamp">· ${linksOf(it).length} lien${linksOf(it).length > 1 ? "s" : ""}</span>` : ""}</td>
+        <td>${isArch(it) ? `<span class="arch-badge" title="Archivée le ${esc(new Date(it.archivedAt).toLocaleDateString("fr-FR"))}">archivée</span> ` : ""}${esc(it.title || "(sans titre)")}${depsHTML(it)}${tk.t ? ` <span class="prog"><i><b style="width:${Math.round(100 * tk.d / tk.t)}%"></b></i>${tk.d}/${tk.t}</span>` : ""}${linksOf(it).length ? ` <span class="stamp">· ${linksOf(it).length} lien${linksOf(it).length > 1 ? "s" : ""}</span>` : ""}</td>
         <td><span class="pill" data-tone="${TONES.includes(c.tone) ? c.tone : "neutral"}">${esc(c.label)}</span></td>
         <td>${p ? `<span class="prio" data-p="${p}">P${p}</span>` : ""}</td>
         <td>${dueHTML(it, due)}</td>
@@ -1875,7 +1933,7 @@ a.chip { text-decoration: none; }
       + dueHTML(it, dueInfo(it, col))
       + (tk.t ? `<span class="prog" title="Checklist"><i><b style="width:${Math.round(100 * tk.d / tk.t)}%"></b></i>${tk.d}/${tk.t}</span>` : "")
       + whoHTML(it.assignee) + contactChips(contactOf(it))
-      + (it.tags || []).map(tagHTML).join("");
+      + (it.tags || []).map(tagHTML).join("") + depsHTML(it);
     // La coche envoie dans la colonne « done » du tableau, ou en ressort ; sans
     // colonne de destination, pas de coche.
     const dest = checkTarget(it);
@@ -2463,6 +2521,13 @@ a.chip { text-decoration: none; }
     $("#fc-links").replaceChildren();
     (it ? linksOf(it) : []).forEach((l) => addLinkRow(l));
     if (!$("#fc-links").children.length) addLinkRow();
+    fcDeps = it ? depRefs(it) : [];
+    $("#fc-dep").value = "";
+    $("#dep-list").innerHTML = S.all.filter((i) => !isArch(i) && (!it || i.id !== it.id)).map((i) => {
+      const b = S.boards.find((x) => x.id === i.boardId);
+      return `<option value="#${esc(refOf(i.id))}">${esc(i.title || "(sans titre)")}${b && b.id !== S.boardId ? ` · ${esc(b.name || "")}` : ""}</option>`;
+    }).join("");
+    renderDeps();
     $("#fc-act").value = "";
     setJournalOpen(false);
     refreshOpenCard(it);
@@ -2520,6 +2585,40 @@ a.chip { text-decoration: none; }
     $("#fc-links").appendChild(row);
     return row;
   }
+  // Dépendances dans l'éditeur : pastilles sous le champ, ajout par référence
+  // ou par début de titre (suggestions), refus des boucles.
+  let fcDeps = [];
+  function renderDeps() {
+    const row = $("#fc-deps");
+    row.hidden = !fcDeps.length;
+    row.innerHTML = fcDeps.map((r) => {
+      const t = S.refIndex.get(r);
+      const active = !!t && !isSettled(t);
+      const label = `${t ? (active ? "⛔" : "✓") : "?"} #${esc(r)}${t ? " " + esc((t.title || "").slice(0, 40)) : ""}`;
+      return `<span class="dep ${t ? (active ? "active" : "done") : "missing"}" title="${esc(t ? t.title || "" : "Carte introuvable")}">${t ? `<a href="#card-${esc(r)}" class="dep-go" title="Ouvrir ${esc(t.title || "")}">${label}</a>` : label}<button type="button" class="x" data-undep="${esc(r)}" aria-label="Retirer">✕</button></span>`;
+    }).join("");
+    row.querySelectorAll("[data-undep]").forEach((b) => b.onclick = () => { fcDeps = fcDeps.filter((r) => r !== b.dataset.undep); renderDeps(); dlgCard.dispatchEvent(new Event("input")); });
+  }
+  function addDep(raw) {
+    const t = String(raw || "").trim().replace(/^#/, "");
+    if (!t) return;
+    const selfRef = S.editing ? refOf(S.editing) : null;
+    let it = /^[A-Za-z0-9_-]{2,8}$/.test(t) ? S.refIndex.get(t) : null;
+    if (!it) { const q = t.toLowerCase(); it = S.all.find((i) => !isArch(i) && refOf(i.id) !== selfRef && (i.title || "").toLowerCase().includes(q)) || null; }
+    const warn = (msg) => { const w = $("#fc-dirty"); w.textContent = msg; w.hidden = false; };
+    if (!it) { warn(`Aucune carte ne correspond à « ${t} ».`); return; }
+    const ref = refOf(it.id);
+    if (ref === selfRef) { warn("Une carte ne peut pas dépendre d'elle-même."); return; }
+    if (fcDeps.includes(ref)) { $("#fc-dep").value = ""; return; }
+    if (selfRef && dependsOn(ref, selfRef)) { warn(`Boucle : #${ref} dépend déjà de cette carte.`); return; }
+    if (fcDeps.length >= 20) { warn("20 dépendances au plus."); return; }
+    fcDeps = [...fcDeps, ref];
+    $("#fc-dep").value = "";
+    renderDeps();
+    dlgCard.dispatchEvent(new Event("input"));
+  }
+  $("#fc-dep").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addDep(e.target.value); } });
+  $("#fc-dep").addEventListener("change", (e) => { if (/^#[A-Za-z0-9_-]{2,8}$/.test(e.target.value.trim())) addDep(e.target.value); });
   $("#fc-add-link").onclick = () => addLinkRow().querySelector(".l-url").focus();
 
   $("#fc-act-add").onclick = async () => {
@@ -2543,6 +2642,8 @@ a.chip { text-decoration: none; }
     const a = e.target.closest && e.target.closest('a[href^="#card-"]');
     if (!a) return;
     e.preventDefault(); e.stopPropagation();
+    // Depuis une carte ouverte avec des modifications en attente : on prévient au lieu de perdre la saisie.
+    if ($("#dlg-card").open && cardDirty()) { warnDirty(); return; }
     openRef(a.getAttribute("href").slice(6));
   }, true);
 
@@ -2667,7 +2768,7 @@ a.chip { text-decoration: none; }
     return JSON.stringify([
       $("#fc-title").value, $("#fc-body").value, $("#fc-col").value, $("#fc-who").value,
       $("#fc-tags").value, $("#fc-due").value, $("#fc-prio").value, $("#fc-act").value,
-      $("#fc-time").value, $("#fc-contact").value,
+      $("#fc-time").value, $("#fc-contact").value, fcDeps.join(","),
       [...$("#fc-links").querySelectorAll(".lrow")].map((r) => [r.querySelector(".l-label").value.trim(), r.querySelector(".l-url").value.trim()])
         .filter(([l, u]) => l || u)
     ]);
@@ -2764,6 +2865,7 @@ a.chip { text-decoration: none; }
         return label ? { label, url } : { url };
       }).filter((l) => safeUrl(l.url)).slice(0, 20),
       source: "",
+      blockedBy: fcDeps.slice(0, 20),
       due: due.value,
       dueTime: due.value ? time.value : "",
       priority: $("#fc-prio").value ? Number($("#fc-prio").value) : 0,
@@ -3051,7 +3153,7 @@ a.chip { text-decoration: none; }
 
   // ---------- navigation ----------
   function selectBoard(id) {
-    if (S.boardId !== id) { S.fCols = new Set(); S.view = viewOf(id); } // colonnes et vue sont propres à chaque tableau
+    if (S.boardId !== id) { S.fCols = new Set(); S.fFree = false; S.fBlocked = false; S.view = viewOf(id); } // colonnes et vue sont propres à chaque tableau
     S.boardId = id; pref.set("board", id);
     S.items = S.all.filter((it) => it.boardId === S.boardId);
     render();
@@ -3080,7 +3182,7 @@ a.chip { text-decoration: none; }
   $("#late").onclick = () => { S.late = !S.late; render(); };
   $("#filter-clear").onclick = () => {
     S.q = ""; $("#q").value = ""; S.who = ""; S.late = false;
-    S.fCols.clear(); S.fPrio.clear(); S.fArch = false;
+    S.fCols.clear(); S.fPrio.clear(); S.fArch = false; S.fFree = false; S.fBlocked = false;
     render();
   };
   S.sort = ["ref", "title", "column", "prio", "due", "who", "tags", "updated"].includes(pref.get("sort")) ? pref.get("sort") : "updated";
@@ -3095,6 +3197,7 @@ a.chip { text-decoration: none; }
     const list = S.view === "list";
     return { view: list ? "list" : "cols", q: S.q.trim(), who: S.who || "", late: !!S.late,
       cols: list ? [...S.fCols].sort() : [], prio: list ? [...S.fPrio].map(String).sort() : [], arch: list ? !!S.fArch : false,
+      free: list ? !!S.fFree : false, blocked: list ? !!S.fBlocked : false,
       sort: list ? S.sort : "", dir: list ? S.dir : "" };
   }
   const stateKey = (st) => {
@@ -3102,6 +3205,7 @@ a.chip { text-decoration: none; }
     const list = st.view === "list";
     return JSON.stringify([list ? "list" : "cols", String(st.q || "").trim(), st.who || "", !!st.late,
       list ? [...(st.cols || [])].sort() : [], list ? [...(st.prio || [])].map(String).sort() : [], list ? !!st.arch : false,
+      list ? !!st.free : false, list ? !!st.blocked : false,
       list ? (st.sort || "updated") : "", list ? (st.dir === "asc" ? "asc" : "desc") : ""]);
   };
   function currentSavedView() { const k = stateKey(viewState()); return boardViews().find((v) => stateKey(v.state) === k) || null; }
@@ -3111,6 +3215,7 @@ a.chip { text-decoration: none; }
     S.q = String(st.q || "").trim(); $("#q").value = S.q;
     S.who = st.who || ""; S.late = !!st.late;
     S.fCols = new Set(st.cols || []); S.fPrio = new Set((st.prio || []).map(String)); S.fArch = !!st.arch;
+    S.fFree = !!st.free; S.fBlocked = !!st.blocked;
     if (st.sort) { S.sort = st.sort; S.dir = st.dir === "asc" ? "asc" : "desc"; pref.set("sort", S.sort); pref.set("dir", S.dir); }
     closeViewsMenu();
     render();
@@ -3161,6 +3266,8 @@ a.chip { text-decoration: none; }
       if (st.cols && st.cols.length) parts.push(st.cols.map((c) => colLabelOf(S.boardId, c)).join(" + "));
       if (st.prio && st.prio.length) parts.push(st.prio.map((p) => p === "0" ? "sans priorité" : "P" + p).join(" + "));
       if (st.arch) parts.push("archivées");
+      if (st.free) parts.push("débloquées");
+      if (st.blocked) parts.push("bloquées");
     }
     return parts.join(" · ");
   }
