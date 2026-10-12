@@ -768,6 +768,7 @@ a.chip { text-decoration: none; }
     <div class="dlg-actions">
       <button type="button" class="btn danger" id="fc-del">Supprimer</button>
       <button type="button" class="btn" id="fc-arch">Archiver</button>
+      <button type="button" class="btn" id="fc-dup" title="Créer une copie de cette carte">Dupliquer</button>
       <span class="spacer"></span>
       <button type="button" class="btn" id="fc-cancel">Annuler</button>
       <button type="submit" class="btn primary" id="fc-save">Enregistrer</button>
@@ -2427,6 +2428,7 @@ a.chip { text-decoration: none; }
     refreshOpenCard(it);
     const del = $("#fc-del"); del.hidden = !it; del.classList.remove("armed"); del.textContent = "Supprimer";
     const arch = $("#fc-arch"); arch.hidden = !it; arch.textContent = it && isArch(it) ? "Désarchiver" : "Archiver";
+    $("#fc-dup").hidden = !it;
     $("#fc-dirty").hidden = true;
     cardSnap = cardFormState();
     if (!$("#dlg-card").open) $("#dlg-card").showModal();
@@ -2609,6 +2611,37 @@ a.chip { text-decoration: none; }
     const cur = S.all.find((i) => i.id === S.editing); if (!cur) return;
     if (isArch(cur)) { if (await setArchived(cur.id, false)) toast(`Carte ${refOf(cur.id)} désarchivée`); }
     else { $("#dlg-card").close(); await archiveWithUndo(cur.id); }
+  };
+
+  // Dupliquer : copie placée juste après l'original dans sa colonne, cases
+  // décochées, sans journal ni historique ni échéance ; la copie s'ouvre aussitôt.
+  $("#fc-dup").onclick = async () => {
+    const cur = S.all.find((i) => i.id === S.editing); if (!cur || !S.db) return;
+    if (cardDirty()) { warnDirty(); return; }
+    const t = now();
+    const col = S.items.filter((i) => i.column === cur.column && !isArch(i)).sort(byOrder);
+    const next = col[col.findIndex((i) => i.id === cur.id) + 1];
+    const data = {
+      boardId: cur.boardId, column: cur.column, order: orderBetween(cur.id, next ? next.id : undefined),
+      title: `${cur.title || ""} (copie)`.slice(0, 200),
+      body: String(cur.body || "").replace(TASK_RE, (m, a, x, b) => a + " " + b),
+      assignee: cur.assignee || "", tags: [...(cur.tags || [])], links: linksOf(cur).map((l) => ({ ...l })), source: "",
+      due: "", dueTime: "", priority: prioOf(cur), contactId: "", archivedAt: "", archivedBy: "",
+      doneAt: toneOf(cur.boardId, cur.column) === "done" ? t : "",
+      activity: [], history: withHistory(null, [{ type: "create", text: `Dupliquée de #${refOf(cur.id)}` }]),
+      createdAt: t, updatedAt: t, by: ME()
+    };
+    const btn = $("#fc-dup"); btn.disabled = true;
+    try {
+      const ref = await S.db.collection("items").add(data);
+      await S.db.doc("items/" + cur.id).update({ history: withHistory(cur, [{ type: "dup", text: `Dupliquée en #${refOf(ref.id)}` }]), updatedAt: t, by: ME() });
+      toast(`Carte ${refOf(ref.id)} créée`);
+      // La copie s'ouvre dès que l'instantané de la base la ramène.
+      const start = Date.now(); let it;
+      while (!(it = S.all.find((i) => i.id === ref.id)) && Date.now() - start < 3000) await new Promise((r) => setTimeout(r, 60));
+      if (it) { openCard(it); $("#fc-title").select(); } else $("#dlg-card").close();
+    } catch (e) { writeFailed(e); }
+    finally { btn.disabled = false; }
   };
 
   // Zone « Archiver » : visible seulement pendant un glisser-déposer.

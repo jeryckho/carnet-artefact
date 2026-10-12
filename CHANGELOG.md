@@ -4,6 +4,7 @@ Version = numéro annoncé par l'outil Artifact à la publication sur l'instance
 
 | Version | Date | Changement |
 |---|---|---|
+| v45 | 2026-10-12 | Dupliquer une carte : bouton dans la carte ouverte, copie juste après l'original dans sa colonne (titre « (copie) », cases décochées, étiquettes, liens, priorité, personne ; sans journal, historique, échéance ni contact), historique croisé « Dupliquée de / en #réf », copie ouverte aussitôt avec le titre sélectionné. |
 | v44 | 2026-10-12 | Étiquettes colorées : teinte dérivée du nom (même nom, même couleur partout, cartes, Liste, Agenda), surcharge par document `tags/{slug}` (`hue` 0-360 ou `"none"`), choisie depuis la carte ouverte (pastilles sous le champ Étiquettes, clic = sélecteur Auto / Gris / dix teintes). Banc de test : collection `tags` ajoutée au store factice. |
 | v43 | 2026-10-12 | Limite de cartes : pastille « max N » à part du compteur (grise, orange quand la colonne déborde), le compteur garde son seul sens (`affichées/total` sous filtre). Corrige la v42 où la même case portait deux lectures. |
 | v42 | 2026-10-12 | Limite de cartes par colonne : champ facultatif `limit` sur chaque colonne, saisi en 3e segment des réglages (`En cours | active | 3`, ou `En cours | 3`) ; affichage `total/limite` dans le compteur, orange quand dépassé, sans blocage. |
