@@ -265,6 +265,8 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 }
 .col-head h2 { margin: 0; font: 600 14px/1.2 var(--cond); letter-spacing: .03em; text-transform: uppercase; }
 .col-head .count { font: 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.col-head .limit { font: 500 10px/1.6 var(--mono); padding: 0 6px; border-radius: 10px; border: 1px solid var(--line-strong); color: var(--muted); white-space: nowrap; }
+.col-head .limit.over { color: #fff; background: var(--t-active); border-color: var(--t-active); font-weight: 600; }
 .col-head .btn { margin-left: auto; padding: 2px 8px; }
 .cards { display: flex; flex-direction: column; gap: 8px; padding: 4px 8px 10px; overflow-y: auto; min-height: 48px; }
 .col.drop-target { border-color: var(--claude); }
@@ -782,7 +784,7 @@ a.chip { text-decoration: none; }
     <div class="field" id="fb-cols-field">
       <label for="fb-cols">Colonnes</label>
       <textarea id="fb-cols" style="min-height:110px"></textarea>
-      <span class="hint">Une colonne par ligne. Suffixe optionnel pour la couleur : <code>| active</code>, <code>| done</code>, <code>| alert</code>, <code>| info</code>, <code>| wait</code>, <code>| idle</code>.</span>
+      <span class="hint">Une colonne par ligne. Suffixe optionnel pour la couleur : <code>| active</code>, <code>| done</code>, <code>| alert</code>, <code>| info</code>, <code>| wait</code>, <code>| idle</code>. Un nombre en dernier fixe une limite de cartes : <code>En cours | active | 3</code> (pastille « max 3 », orange au-delà, sans bloquer).</span>
     </div>
     <fieldset class="field tints" id="fb-tints">
       <legend class="label">Couleur de fond</legend>
@@ -1670,12 +1672,16 @@ a.chip { text-decoration: none; }
       const live = S.items.filter((it) => !isArch(it));
       const total = c.id === "__orphan" ? live.filter((it) => !known.has(it.column)).length : live.filter((it) => it.column === c.id).length;
       const count = filtering ? `<span class="count" title="${list.length} affichée${list.length > 1 ? "s" : ""} sur ${total}">${list.length}/${total}</span>` : `<span class="count">${list.length}</span>`;
+      // Limite de cartes : pastille à part du compteur, orange quand la colonne déborde (sans blocage).
+      const limit = Number(c.limit) > 0 ? Math.round(Number(c.limit)) : 0;
+      const over = limit > 0 && total > limit;
+      const limitHTML = limit ? `<span class="limit${over ? " over" : ""}" title="${over ? `Limite dépassée : ${total} carte${total > 1 ? "s" : ""} pour ${limit} au plus` : `Limite : ${limit} carte${limit > 1 ? "s" : ""} au plus`}">max ${limit}</span>` : "";
       const isC = c.id !== "__orphan" && collapsed.has(c.id);
       const toggle = c.id !== "__orphan"
         ? `<button class="btn ghost col-toggle" data-toggle="${esc(c.id)}" title="${isC ? "Déplier la colonne" : "Replier la colonne"}" aria-expanded="${!isC}">${isC ? "▸" : "▾"}</button>`
         : "";
       return `<section class="col${isC ? " col-collapsed" : ""}" data-col="${esc(c.id)}" data-tone="${TONES.includes(c.tone) ? c.tone : "neutral"}">
-        <div class="col-head">${toggle}<h2>${esc(c.label)}</h2>${count}${!isC && c.id !== "__orphan" ? `<button class="btn ghost" data-add="${esc(c.id)}" title="Ajouter une carte">+</button>` : ""}</div>
+        <div class="col-head">${toggle}<h2>${esc(c.label)}</h2>${count}${isC ? "" : limitHTML}${!isC && c.id !== "__orphan" ? `<button class="btn ghost" data-add="${esc(c.id)}" title="Ajouter une carte">+</button>` : ""}</div>
         ${isC ? "" : `<div class="cards" data-drop="${esc(c.id)}">${list.length ? list.map((it) => cardHTML(it, c)).join("") : `<div class="col-empty">Vide</div>`}</div>`}
       </section>`;
     }).join("")}</div>`;
@@ -2621,18 +2627,29 @@ a.chip { text-decoration: none; }
   $("#fb-preset").innerHTML = Object.entries(PRESETS).map(([k, p]) =>
     `<option value="${k}">${esc(p.label)} : ${esc(p.columns.map((c) => c.label).join(" / "))}</option>`).join("");
 
-  function colsToText(cols) { return cols.map((c) => c.tone && c.tone !== "neutral" ? `${c.label} | ${c.tone}` : c.label).join("\n"); }
+  function colsToText(cols) {
+    return cols.map((c) => {
+      const limit = Number(c.limit) > 0 ? Math.round(Number(c.limit)) : 0;
+      if (limit) return `${c.label} | ${TONES.includes(c.tone) ? c.tone : "neutral"} | ${limit}`;
+      return c.tone && c.tone !== "neutral" ? `${c.label} | ${c.tone}` : c.label;
+    }).join("\n");
+  }
   function textToCols(txt, previous) {
     const used = new Set();
     return txt.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 12).map((line) => {
-      const [labelRaw, toneRaw] = line.split("|").map((s) => s.trim());
+      const parts = line.split("|").map((s) => s.trim());
+      const labelRaw = parts[0];
+      // « Libellé | ton | N », « Libellé | N » ou « Libellé | ton » : un dernier segment numérique est la limite.
+      let limit = 0;
+      if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) limit = Math.min(999, Number(parts.pop()));
+      const toneRaw = parts[1];
       const label = labelRaw.slice(0, 40);
       const prev = previous.find((c) => c.label === label && !used.has(c.id));
       let id = prev ? prev.id : slug(label);
       while (used.has(id)) id += "-2";
       used.add(id);
       const tone = TONES.includes(toneRaw) ? toneRaw : (prev ? prev.tone : "neutral");
-      return { id, label, tone };
+      return limit ? { id, label, tone, limit } : { id, label, tone };
     });
   }
 

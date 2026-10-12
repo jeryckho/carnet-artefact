@@ -4,6 +4,8 @@ Version = numéro annoncé par l'outil Artifact à la publication sur l'instance
 
 | Version | Date | Changement |
 |---|---|---|
+| v43 | 2026-10-12 | Limite de cartes : pastille « max N » à part du compteur (grise, orange quand la colonne déborde), le compteur garde son seul sens (`affichées/total` sous filtre). Corrige la v42 où la même case portait deux lectures. |
+| v42 | 2026-10-12 | Limite de cartes par colonne : champ facultatif `limit` sur chaque colonne, saisi en 3e segment des réglages (`En cours | active | 3`, ou `En cours | 3`) ; affichage `total/limite` dans le compteur, orange quand dépassé, sans blocage. |
 | v41 | 2026-10-09 | Filtre actif visible : champ de recherche en évidence (ambre) et badge « N cartes · critères » avec bouton « Tout afficher » dans la barre d'outils (recherche, personne, en retard, filtres de la vue Liste). |
 | v40 | 2026-10-08 | Diagrammes Mermaid dans le markdown (détail, carte ouverte, journal, Agenda) : librairie chargée à la demande depuis cdnjs, SVG assaini par DOMPurify, thème suivi, bloc invalide signalé sans dessin d'erreur. Règle `[hidden]` reprise de l'enveloppe d'artefact dans la page ; banc de test avec la même enveloppe. |
 | v39 | 2026-10-08 | Réglages du tableau : champ « jours » d'archivage à largeur fixe, explication sous le champ (le champ était écrasé). |
