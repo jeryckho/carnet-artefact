@@ -29,6 +29,8 @@
   --t-idle: #a7aeaa;
   --focus: #3450c4;
   --shadow: 0 1px 2px rgba(28, 34, 38, .06), 0 2px 6px rgba(28, 34, 38, .05);
+  --tag-l: 88%;
+  --tag-k: 28%;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --cond: "IBM Plex Sans Condensed", "Arial Narrow", "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -60,6 +62,8 @@
     --t-idle: #5b6468;
     --focus: #93a6ff;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    --tag-l: 24%;
+    --tag-k: 84%;
   }
 }
 :root[data-theme="dark"] {
@@ -88,6 +92,8 @@
   --t-idle: #5b6468;
   --focus: #93a6ff;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+  --tag-l: 24%;
+  --tag-k: 84%;
 }
 
 html, body { height: 100%; }
@@ -331,6 +337,17 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .more { border: 0; background: none; padding: 0; color: var(--claude); font-size: 12px; cursor: pointer; justify-self: start; }
 .card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .tag { font: 11px/1.5 var(--mono); padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 3px; color: var(--ink); }
+/* étiquette colorée : teinte dérivée du nom ou choisie (document tags/{slug}) */
+.tag[style*="--th"] { background: hsl(var(--th) 50% var(--tag-l)); border-color: hsl(var(--th) 40% 55%); color: hsl(var(--th) 55% var(--tag-k)); }
+.tag-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tag-row .tag { cursor: pointer; }
+.tag-row .tag:not([style]) { background: none; }
+.tag-row .tag:hover { outline: 2px solid var(--focus); outline-offset: 1px; }
+.hue-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.hue-opt { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 7px 8px; cursor: pointer; font-size: 12px; }
+.hue-opt:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.hue-opt.sel { border-color: var(--claude); background: var(--claude-soft); color: var(--claude); font-weight: 500; }
+.hue-opt .chip-sw { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line-strong); flex: none; }
 .who {
   font: 500 11px/1.5 var(--sans);
   padding: 0 7px;
@@ -706,6 +723,8 @@ a.chip { text-decoration: none; }
       <div class="field">
         <label for="fc-tags">Étiquettes</label>
         <input id="fc-tags" placeholder="mantis, xop, urgent" autocomplete="off">
+        <div class="tag-row" id="fc-tag-chips" hidden></div>
+        <span class="hint" id="fc-tag-hint" hidden>Clic sur une étiquette pour choisir sa couleur.</span>
       </div>
       <div class="field" id="fc-contact-field" hidden>
         <label for="fc-contact">Contact</label>
@@ -1065,6 +1084,19 @@ a.chip { text-decoration: none; }
     $("#contact-list").innerHTML = [...S.contacts].sort(byFav).map((c) => `<option value="${esc(c.name || "")}">`).join("");
   }
   const slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "col";
+  // Étiquettes colorées : même nom, même teinte partout. Par défaut la teinte
+  // sort d'un hachage du nom ; un document `tags/{slug}` ({ hue: 0-360 | "none" })
+  // la remplace. Les catégories de contacts n'en ont pas.
+  const TAGC = new Map();
+  const tagSlug = (t) => slug(String(t || "").trim());
+  function tagHashHue(k) { let h = 0; for (const ch of k) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; }
+  function tagHue(t) {
+    const k = tagSlug(t), o = TAGC.get(k);
+    if (o && o.hue === "none") return null;
+    if (o && typeof o.hue === "number" && isFinite(o.hue)) return ((Math.round(o.hue) % 360) + 360) % 360;
+    return tagHashHue(k);
+  }
+  const tagHTML = (t) => { const h = tagHue(t); return `<span class="tag"${h === null ? "" : ` style="--th:${h}"`}>${esc(t)}</span>`; };
   function ago(iso) {
     const t = Date.parse(iso); if (!isFinite(t)) return "";
     const s = (Date.now() - t) / 1000;
@@ -1622,7 +1654,7 @@ a.chip { text-decoration: none; }
 
   function cardHTML(it, col) {
     const fresh = it.by === "claude" && Date.now() - Date.parse(it.updatedAt) < FRESH_MS;
-    const tags = (it.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("");
+    const tags = (it.tags || []).map(tagHTML).join("");
     const links = linksOf(it);
     const linkHTML = links.length ? `<div class="links">${links.map((l, i) =>
       `<a class="lnk" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.url)}"${i >= 3 ? " hidden" : ""}>${esc(labelOf(l))}</a>`).join("")}${links.length > 3 ? `<button class="lnk lnk-more" data-more-links>+${links.length - 3}</button>` : ""}</div>` : "";
@@ -1727,7 +1759,7 @@ a.chip { text-decoration: none; }
         <td>${p ? `<span class="prio" data-p="${p}">P${p}</span>` : ""}</td>
         <td>${dueHTML(it, due)}</td>
         <td>${whoHTML(it.assignee)}</td>
-        <td>${(it.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join(" ")}</td>
+        <td>${(it.tags || []).map(tagHTML).join(" ")}</td>
         <td class="ago${it.by === "claude" ? " by-claude" : ""}" data-ago="${esc(it.updatedAt || "")}" data-prefix="${it.by === "claude" ? "Claude, " : ""}">${it.by === "claude" ? "Claude, " : ""}${esc(ago(it.updatedAt))}</td>
       </tr>`; }).join("")}</tbody></table>` : `<div class="notice"><p>${S.items.length ? "Aucune carte ne correspond au filtre." : "Ce tableau est vide."}</p></div>`}</div>`;
     main.querySelectorAll("[data-sort]").forEach((btn) => btn.onclick = () => {
@@ -1814,7 +1846,7 @@ a.chip { text-decoration: none; }
       + dueHTML(it, dueInfo(it, col))
       + (tk.t ? `<span class="prog" title="Checklist"><i><b style="width:${Math.round(100 * tk.d / tk.t)}%"></b></i>${tk.d}/${tk.t}</span>` : "")
       + whoHTML(it.assignee) + contactChips(contactOf(it))
-      + (it.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("");
+      + (it.tags || []).map(tagHTML).join("");
     // La coche envoie dans la colonne « done » du tableau, ou en ressort ; sans
     // colonne de destination, pas de coche.
     const dest = checkTarget(it);
@@ -2180,6 +2212,14 @@ a.chip { text-decoration: none; }
           <button type="button" class="pick-btn" data-nav="1" aria-label="Mois suivant">›</button>
         </div><div class="cal-grid">${cells}</div>
         <div class="pick-actions"><button type="button" class="btn danger" data-clear>Effacer la date</button><button type="button" class="btn" data-shut>Fermer</button></div>`;
+    } else if (pick.kind === "tag") {
+      const cur = TAGC.get(pick.slug), curV = cur ? (cur.hue === "none" ? "none" : String(((Math.round(cur.hue) % 360) + 360) % 360)) : "auto";
+      const auto = tagHashHue(pick.slug);
+      const sw = (v, label, hue) => `<button type="button" class="hue-opt${String(v) === curV ? " sel" : ""}" data-hue="${v}"><span class="chip-sw" style="background:${hue === null ? "var(--line)" : `hsl(${hue} 50% 70%)`}"></span>${label}</button>`;
+      box.innerHTML = `<div class="time-head"><div class="cal-title">Couleur de « ${esc(pick.name)} »</div><span class="tag" style="--th:${curV === "none" ? "" : curV === "auto" ? auto : curV}">${esc(pick.name)}</span></div>
+        <div class="hue-grid">${sw("auto", "Auto", auto)}${sw("none", "Gris", null)}${TINTS.filter(([v]) => typeof v === "number").map(([v, l]) => sw(v, l, v)).join("")}</div>
+        <div class="pick-actions"><span class="hint">Vaut pour toutes les cartes portant cette étiquette.</span><button type="button" class="btn" data-shut>Fermer</button></div>`;
+      if (curV === "none") box.querySelector(".time-head .tag").removeAttribute("style");
     } else {
       const [h, mi] = pick.value ? pick.value.split(":") : ["", ""];
       // Tout est visible d'un coup, sans défilement : un appui sur l'heure, un sur
@@ -2201,6 +2241,19 @@ a.chip { text-decoration: none; }
     drawPick();
     if (!dlgPick.open) dlgPick.showModal();
   }
+  async function setTagHue(name, v) {
+    const k = tagSlug(name); if (!k || !S.db) return;
+    try {
+      if (v === "auto") await S.db.doc("tags/" + k).delete();
+      else await S.db.doc("tags/" + k).set({ name: String(name).trim(), hue: v === "none" ? "none" : Number(v), updatedAt: now(), by: ME() });
+    } catch (e) { writeFailed(e); }
+  }
+  function pickTagColor(name) {
+    pick = { kind: "tag", name: String(name).trim(), slug: tagSlug(name) };
+    $("#pick-body").replaceChildren();
+    drawPick();
+    if (!dlgPick.open) dlgPick.showModal();
+  }
   function pickTime(hhmm, done) {
     pick = { kind: "time", value: hhmm || "", done };
     $("#pick-body").replaceChildren();
@@ -2216,12 +2269,22 @@ a.chip { text-decoration: none; }
     const b = e.target.closest("button"); if (!b || !pick) return;
     const d = b.dataset;
     if ("shut" in d) dlgPick.close();
+    else if (d.hue !== undefined) { setTagHue(pick.name, d.hue).then(() => { if (pick && pick.kind === "tag") drawPick(); renderTagChips(); }); }
     else if (d.nav) { pick.month.setMonth(pick.month.getMonth() + Number(d.nav)); drawPick(); }
     else if (d.iso) { pick.done(d.iso); dlgPick.close(); }
     else if ("clear" in d) { pick.done(""); dlgPick.close(); }
     else if (d.h) { pick.value = d.h + ":" + (pick.value ? pick.value.split(":")[1] : "00"); pick.done(pick.value); drawPick(); }
     else if (d.m) { pick.value = (pick.value ? pick.value.split(":")[0] : pad2(new Date().getHours())) + ":" + d.m; pick.done(pick.value); dlgPick.close(); }
   });
+  // Étiquettes saisies dans la carte : pastilles cliquables pour choisir la couleur.
+  function renderTagChips() {
+    const row = $("#fc-tag-chips"), hint = $("#fc-tag-hint");
+    const tags = $("#fc-tags").value.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 12);
+    row.hidden = hint.hidden = !tags.length;
+    row.innerHTML = tags.map((t) => { const h = tagHue(t); return `<button type="button" class="tag" data-tagc="${esc(t)}" title="Choisir la couleur"${h === null ? "" : ` style="--th:${h}"`}>${esc(t)}</button>`; }).join("");
+    row.querySelectorAll("[data-tagc]").forEach((b) => b.onclick = () => pickTagColor(b.dataset.tagc));
+  }
+  $("#fc-tags").addEventListener("input", renderTagChips);
   $("#fc-due-pick").onclick = () => pickDate(frToIso($("#fc-due").value).value || "", (v) => { $("#fc-due").value = isoToFr(v); if (!v) $("#fc-time").value = ""; });
   $("#fc-time-pick").onclick = () => pickTime(normTime($("#fc-time").value).value || "", (v) => { $("#fc-time").value = v; });
 
@@ -2349,6 +2412,7 @@ a.chip { text-decoration: none; }
     const b = board();
     $("#fc-who").value = whoOut(it ? it.assignee || "" : (b.preset === "queue" ? "claude" : ""));
     $("#fc-tags").value = it ? (it.tags || []).join(", ") : "";
+    renderTagChips();
     $("#fc-due").value = it ? isoToFr(it.due) : "";
     $("#fc-time").value = it && it.due ? it.dueTime || "" : "";
     $("#fc-contact-field").hidden = !contactsOn();
@@ -2979,6 +3043,13 @@ a.chip { text-decoration: none; }
       refreshLists();
       render();
     }, () => { S.loaded.contacts = true; });
+    // Couleurs d'étiquettes choisies (collection `tags`).
+    db.collection("tags").onSnapshot((snap) => {
+      TAGC.clear();
+      snap.docs.forEach((d) => TAGC.set(d.id, d.data() || {}));
+      render();
+      if ($("#dlg-card").open) renderTagChips();
+    }, () => {});
     // Réglages de l'instance (document `settings/app`) : nom affiché, contacts activés.
     db.collection("settings").onSnapshot((snap) => {
       const d = snap.docs.find((x) => x.id === "app");

@@ -4,6 +4,7 @@ Version = numéro annoncé par l'outil Artifact à la publication sur l'instance
 
 | Version | Date | Changement |
 |---|---|---|
+| v44 | 2026-10-12 | Étiquettes colorées : teinte dérivée du nom (même nom, même couleur partout, cartes, Liste, Agenda), surcharge par document `tags/{slug}` (`hue` 0-360 ou `"none"`), choisie depuis la carte ouverte (pastilles sous le champ Étiquettes, clic = sélecteur Auto / Gris / dix teintes). Banc de test : collection `tags` ajoutée au store factice. |
 | v43 | 2026-10-12 | Limite de cartes : pastille « max N » à part du compteur (grise, orange quand la colonne déborde), le compteur garde son seul sens (`affichées/total` sous filtre). Corrige la v42 où la même case portait deux lectures. |
 | v42 | 2026-10-12 | Limite de cartes par colonne : champ facultatif `limit` sur chaque colonne, saisi en 3e segment des réglages (`En cours | active | 3`, ou `En cours | 3`) ; affichage `total/limite` dans le compteur, orange quand dépassé, sans blocage. |
 | v41 | 2026-10-09 | Filtre actif visible : champ de recherche en évidence (ambre) et badge « N cartes · critères » avec bouton « Tout afficher » dans la barre d'outils (recherche, personne, en retard, filtres de la vue Liste). |

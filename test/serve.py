@@ -18,8 +18,8 @@ STUB = r'''<!doctype html><html><head><meta charset=utf8><meta name=viewport con
 <script>
 (() => {
   const DELAY = __DELAY__;
-  const store = { boards: {}, items: {}, contacts: {}, settings: {} };
-  const subs = { boards: [], items: [], contacts: [], settings: [] };
+  const store = { boards: {}, items: {}, contacts: {}, settings: {}, tags: {} };
+  const subs = { boards: [], items: [], contacts: [], settings: [], tags: [] };
   const uid = () => Math.random().toString(36).slice(2, 10);
   const snap = (name) => ({ docs: Object.entries(store[name]).sort((a, z) => (a[1].order ?? 0) - (z[1].order ?? 0)).map(([id, d]) => ({ id, data: () => ({ ...d }) })) });
   const fire = (name) => subs[name].forEach((cb) => cb(snap(name)));
