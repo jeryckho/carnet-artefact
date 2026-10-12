@@ -235,6 +235,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.ghost { border-color: transparent; background: none; color: var(--muted); }
 .btn.ghost:hover { color: var(--ink); border-color: var(--line-strong); }
 .spacer { flex: 1; }
+/* menu des vues enregistrées */
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 240px; max-width: calc(100vw - 32px);
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .18); padding: 6px; display: grid; gap: 2px;
+}
+.menu-item { display: flex; align-items: center; gap: 4px; }
+.menu-item > .mi { all: unset; flex: 1; min-width: 0; cursor: pointer; padding: 6px 8px; border-radius: 5px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-item > .mi:hover, .menu-item > .mi:focus-visible { background: var(--surface-2); }
+.menu-item.on > .mi { color: var(--claude); font-weight: 500; }
+.menu-item.on > .mi::before { content: "✓ "; }
+.menu .del { all: unset; cursor: pointer; padding: 2px 7px; border-radius: 4px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.menu .del:hover, .menu .del:focus-visible { background: var(--surface-2); color: var(--t-alert); }
+.menu .del.armed { background: var(--t-alert); color: #fff; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.menu .empty { padding: 6px 8px; color: var(--muted); font-size: 12px; }
+#views-btn[aria-expanded="true"] { border-color: var(--ink); }
 
 /* ---------- colonnes ---------- */
 main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -684,6 +702,7 @@ a.chip { text-decoration: none; }
     <button type="button" data-view="week" aria-pressed="false">Semaine</button>
     <button type="button" data-view="contacts" id="v-contacts" aria-pressed="false" hidden>Contacts</button>
   </div>
+  <span class="menu-wrap" id="views-wrap"><button type="button" class="btn" id="views-btn" aria-haspopup="menu" aria-expanded="false" title="Vues enregistrées : filtres et tri nommés">Vues</button><div class="menu" id="views-menu" role="menu" hidden></div></span>
   <button type="button" class="btn" id="tools-more" aria-expanded="false">Filtres</button>
   <span class="filter-state" id="filter-state" role="status" hidden><span id="filter-state-txt"></span><button type="button" id="filter-clear" title="Retirer tous les filtres">Tout afficher</button></span>
   <input class="search t-extra" id="q" type="search" placeholder="Filtrer : titre, texte, étiquette, réf." aria-label="Filtrer" title="Filtrer (/)">
@@ -928,7 +947,7 @@ a.chip { text-decoration: none; }
     view: "cols", q: "", who: "", late: false, sort: "updated",
     fCols: new Set(), fPrio: new Set(), fArch: false, expanded: new Set(),
     ready: false, dragging: null, dragTab: null, tabOrder: null, viewInit: false, showArchBoards: false, canAdmin: true, pendingRender: false,
-    editing: null, editingBoard: null
+    views: [], editing: null, editingBoard: null
   };
 
   // ---------- préférences locales ----------
@@ -1404,7 +1423,10 @@ a.chip { text-decoration: none; }
       b.hidden = !canView(b.dataset.view, S.boardId);
     });
     $("#settings-btn").hidden = !S.canAdmin;
-    ["#who-seg", "#late", "#board-settings", "#add-card"].forEach((s) => { $(s).hidden = inContacts; });
+    ["#who-seg", "#late", "#board-settings", "#add-card", "#views-wrap"].forEach((s) => { $(s).hidden = inContacts; });
+    if (inContacts) closeViewsMenu();
+    const nv = boardViews().length;
+    $("#views-btn").textContent = nv ? `Vues (${nv})` : "Vues";
     $("#q").placeholder = inContacts ? "Filtrer les contacts" : "Filtrer : titre, texte, étiquette, réf.";
     renderWho();
     $("#late").setAttribute("aria-pressed", S.late);
@@ -1422,7 +1444,8 @@ a.chip { text-decoration: none; }
       if (S.who) parts.push(S.who === "none" ? "sans personne" : whoOut(S.who));
       if (S.late) parts.push("en retard");
       if (listF) parts.push("filtres de la liste");
-      $("#filter-state-txt").textContent = `${n} carte${n > 1 ? "s" : ""} · ${parts.join(" · ")}`;
+      const sv = currentSavedView();
+      $("#filter-state-txt").textContent = `${n} carte${n > 1 ? "s" : ""} · ${sv ? `vue « ${sv.name} »` : parts.join(" · ")}`;
     }
     // Champ en cours de saisie dans une vue à édition directe : on le retrouve après le re-rendu.
     const ae = document.activeElement;
@@ -2218,6 +2241,12 @@ a.chip { text-decoration: none; }
           <button type="button" class="pick-btn" data-nav="1" aria-label="Mois suivant">›</button>
         </div><div class="cal-grid">${cells}</div>
         <div class="pick-actions"><button type="button" class="btn danger" data-clear>Effacer la date</button><button type="button" class="btn" data-shut>Fermer</button></div>`;
+    } else if (pick.kind === "text") {
+      box.innerHTML = `<form id="pick-form"><div class="cal-title" style="margin-bottom:10px">${esc(pick.title)}</div>
+        <div class="field"><input id="pick-input" maxlength="60" autocomplete="off" placeholder="${esc(pick.placeholder || "")}" value="${esc(pick.value || "")}"></div>
+        <div class="pick-actions"><button type="button" class="btn" data-shut>Annuler</button><button type="submit" class="btn primary">${esc(pick.ok || "Enregistrer")}</button></div></form>`;
+      box.querySelector("#pick-form").onsubmit = (e) => { e.preventDefault(); const v = box.querySelector("#pick-input").value.trim(); if (!v) return; dlgPick.close(); pick.done(v); };
+      setTimeout(() => { const i = box.querySelector("#pick-input"); if (i) { i.focus(); i.select(); } }, 0);
     } else if (pick.kind === "tag") {
       const cur = TAGC.get(pick.slug), curV = cur ? (cur.hue === "none" ? "none" : String(((Math.round(cur.hue) % 360) + 360) % 360)) : "auto";
       const auto = tagHashHue(pick.slug);
@@ -2253,6 +2282,12 @@ a.chip { text-decoration: none; }
       if (v === "auto") await S.db.doc("tags/" + k).delete();
       else await S.db.doc("tags/" + k).set({ name: String(name).trim(), hue: v === "none" ? "none" : Number(v), updatedAt: now(), by: ME() });
     } catch (e) { writeFailed(e); }
+  }
+  function pickText(opts, done) {
+    pick = { kind: "text", ...opts, done };
+    $("#pick-body").replaceChildren();
+    drawPick();
+    if (!dlgPick.open) dlgPick.showModal();
   }
   function pickTagColor(name) {
     pick = { kind: "tag", name: String(name).trim(), slug: tagSlug(name) };
@@ -3051,6 +3086,88 @@ a.chip { text-decoration: none; }
   S.sort = ["ref", "title", "column", "prio", "due", "who", "tags", "updated"].includes(pref.get("sort")) ? pref.get("sort") : "updated";
   S.dir = pref.get("dir") === "asc" ? "asc" : "desc";
 
+  // ---------- vues enregistrées (collection `views`) ----------
+  // Une vue = Colonnes ou Liste + recherche, personne, en retard, et en Liste les
+  // filtres colonne / priorité / archivées et le tri. Partagée par tous les lecteurs.
+  // Aucun état « vue appliquée » : la vue courante est reconnue par comparaison.
+  const boardViews = () => S.views.filter((v) => v.boardId === S.boardId).sort((a, z) => (a.order ?? 0) - (z.order ?? 0) || String(a.name || "").localeCompare(String(z.name || ""), "fr"));
+  function viewState() {
+    const list = S.view === "list";
+    return { view: list ? "list" : "cols", q: S.q.trim(), who: S.who || "", late: !!S.late,
+      cols: list ? [...S.fCols].sort() : [], prio: list ? [...S.fPrio].map(String).sort() : [], arch: list ? !!S.fArch : false,
+      sort: list ? S.sort : "", dir: list ? S.dir : "" };
+  }
+  const stateKey = (st) => {
+    st = st && typeof st === "object" ? st : {};
+    const list = st.view === "list";
+    return JSON.stringify([list ? "list" : "cols", String(st.q || "").trim(), st.who || "", !!st.late,
+      list ? [...(st.cols || [])].sort() : [], list ? [...(st.prio || [])].map(String).sort() : [], list ? !!st.arch : false,
+      list ? (st.sort || "updated") : "", list ? (st.dir === "asc" ? "asc" : "desc") : ""]);
+  };
+  function currentSavedView() { const k = stateKey(viewState()); return boardViews().find((v) => stateKey(v.state) === k) || null; }
+  function applyView(v) {
+    const st = v.state && typeof v.state === "object" ? v.state : {};
+    setView(st.view === "list" && canView("list", S.boardId) ? "list" : "cols");
+    S.q = String(st.q || "").trim(); $("#q").value = S.q;
+    S.who = st.who || ""; S.late = !!st.late;
+    S.fCols = new Set(st.cols || []); S.fPrio = new Set((st.prio || []).map(String)); S.fArch = !!st.arch;
+    if (st.sort) { S.sort = st.sort; S.dir = st.dir === "asc" ? "asc" : "desc"; pref.set("sort", S.sort); pref.set("dir", S.dir); }
+    closeViewsMenu();
+    render();
+  }
+  async function saveCurrentView(name) {
+    if (!S.db || !S.boardId) return;
+    const order = boardViews().reduce((m, v) => Math.max(m, Number(v.order) || 0), 0) + 10;
+    try {
+      await S.db.collection("views").add({ boardId: S.boardId, name: name.slice(0, 60), state: viewState(), order, createdAt: now(), updatedAt: now(), by: ME() });
+      toast(`Vue « ${name} » enregistrée`);
+    } catch (e) { writeFailed(e); }
+  }
+  async function deleteView(v) {
+    const { id, ...backup } = v;
+    try { await S.db.doc("views/" + id).delete(); } catch (e) { writeFailed(e); return; }
+    toast(`Vue « ${v.name} » supprimée`, { label: "Annuler", run: () => S.db.doc("views/" + id).set(backup).catch(writeFailed) });
+  }
+  function closeViewsMenu() { $("#views-menu").hidden = true; $("#views-btn").setAttribute("aria-expanded", "false"); }
+  function openViewsMenu() {
+    const menu = $("#views-menu"), cur = currentSavedView();
+    const list = boardViews();
+    menu.innerHTML = (list.length ? list.map((v) => `<div class="menu-item${cur && cur.id === v.id ? " on" : ""}"><button type="button" class="mi" role="menuitem" data-apply="${esc(v.id)}" title="${esc(describeView(v.state))}">${esc(v.name || "(sans nom)")}</button><button type="button" class="del" data-delv="${esc(v.id)}" title="Supprimer cette vue">✕</button></div>`).join("")
+      : `<div class="empty">Aucune vue enregistrée pour ce tableau.</div>`)
+      + `<hr><div class="menu-item"><button type="button" class="mi" role="menuitem" data-savev>Enregistrer la vue actuelle…</button></div>`;
+    menu.hidden = false;
+    $("#views-btn").setAttribute("aria-expanded", "true");
+    menu.querySelectorAll("[data-apply]").forEach((b) => b.onclick = () => { const v = S.views.find((x) => x.id === b.dataset.apply); if (v) applyView(v); });
+    menu.querySelectorAll("[data-delv]").forEach((b) => b.onclick = (e) => {
+      e.stopPropagation();
+      if (!b.classList.contains("armed")) { menu.querySelectorAll(".del.armed").forEach((x) => { x.classList.remove("armed"); x.textContent = "✕"; }); b.classList.add("armed"); b.textContent = "Confirmer"; return; }
+      const v = S.views.find((x) => x.id === b.dataset.delv); closeViewsMenu(); if (v) deleteView(v);
+    });
+    menu.querySelector("[data-savev]").onclick = () => {
+      closeViewsMenu();
+      const st = viewState(), hint = describeView(st);
+      pickText({ title: "Enregistrer la vue actuelle", placeholder: hint || "Nom de la vue", value: hint.slice(0, 40) }, saveCurrentView);
+    };
+  }
+  // Résumé lisible d'une vue, pour l'infobulle et le nom proposé.
+  function describeView(st) {
+    st = st && typeof st === "object" ? st : {};
+    const parts = [];
+    if (st.view === "list") parts.push("Liste");
+    if (st.q) parts.push(`« ${st.q} »`);
+    if (st.who) parts.push(st.who === "none" ? "sans personne" : whoOut(st.who));
+    if (st.late) parts.push("en retard");
+    if (st.view === "list") {
+      if (st.cols && st.cols.length) parts.push(st.cols.map((c) => colLabelOf(S.boardId, c)).join(" + "));
+      if (st.prio && st.prio.length) parts.push(st.prio.map((p) => p === "0" ? "sans priorité" : "P" + p).join(" + "));
+      if (st.arch) parts.push("archivées");
+    }
+    return parts.join(" · ");
+  }
+  $("#views-btn").onclick = (e) => { e.stopPropagation(); $("#views-menu").hidden ? openViewsMenu() : closeViewsMenu(); };
+  document.addEventListener("click", (e) => { if (!$("#views-menu").hidden && !e.target.closest("#views-wrap")) closeViewsMenu(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#views-menu").hidden) { closeViewsMenu(); $("#views-btn").focus(); } });
+
   // ---------- raccourcis clavier ----------
   // N nouvelle carte, / recherche, L liste, C colonnes. Inactifs dans un champ,
   // dans une fenêtre ouverte, avec un modificateur, ou sans tableau.
@@ -3134,6 +3251,11 @@ a.chip { text-decoration: none; }
       snap.docs.forEach((d) => TAGC.set(d.id, d.data() || {}));
       render();
       if ($("#dlg-card").open) renderTagChips();
+    }, () => {});
+    // Vues enregistrées (collection `views`).
+    db.collection("views").onSnapshot((snap) => {
+      S.views = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      render();
     }, () => {});
     // Réglages de l'instance (document `settings/app`) : nom affiché, contacts activés.
     db.collection("settings").onSnapshot((snap) => {
