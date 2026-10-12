@@ -447,6 +447,11 @@ dialog {
 .fc-preview table { border-collapse: collapse; margin: 0 0 8px; font-size: 13px; display: block; overflow-x: auto; }
 .fc-preview th, .fc-preview td { border: 1px solid var(--line); padding: 3px 8px; text-align: left; vertical-align: top; }
 .fc-empty { color: var(--muted); font-style: italic; }
+/* promouvoir une ligne à cocher en carte : bouton révélé au survol de la ligne */
+.fc-preview .promote { all: unset; cursor: pointer; margin-left: 8px; font: 11px/1.4 var(--mono); color: var(--claude); opacity: 0; border-radius: 3px; padding: 0 5px; white-space: nowrap; }
+.fc-preview li:hover > .promote, .fc-preview .promote:focus-visible { opacity: 1; }
+.fc-preview .promote:hover { background: var(--claude-soft); }
+@media (hover: none) { .fc-preview .promote { opacity: .75; } }
 .copy-ref { all: unset; font: 11px/1.6 var(--mono); color: var(--muted); cursor: copy; border-radius: 3px; padding: 0 3px; min-width: 6ch; text-align: center; }
 dialog h3 .copy-ref { font-size: 12px; }
 .copy-ref:hover { background: var(--surface-2); color: var(--ink); }
@@ -2531,6 +2536,53 @@ a.chip { text-decoration: none; }
         catch (err) { ta.value = toggleTask(ta.value, n); renderBodyView(); writeFailed(err); }
       };
     });
+    if (S.editing) view.querySelectorAll("li:has(> input[type=checkbox])").forEach((li, n) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "promote"; b.title = "En faire une carte à part"; b.textContent = "→ carte";
+      b.onclick = (e) => { e.stopPropagation(); promoteTask(n); };
+      li.appendChild(b);
+    });
+  }
+  // n-ième ligne à cocher du détail : indice de ligne, préfixe « - [ ] » et texte.
+  function taskLine(body, n) {
+    const lines = String(body || "").split("\n");
+    let i = -1;
+    for (let k = 0; k < lines.length; k++) {
+      const m = lines[k].match(/^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\])\s*(.*)$/);
+      if (m && ++i === n) return { k, lines, prefix: m[1] + m[2] + m[3], text: m[4] };
+    }
+    return null;
+  }
+  // Une case qui grossit devient une carte : même colonne, juste après la source ;
+  // la ligne garde sa case et pointe vers la nouvelle carte par sa référence.
+  async function promoteTask(n) {
+    const cur = S.all.find((i) => i.id === S.editing); if (!cur || !S.db) return;
+    if (cardDirty()) { warnDirty(); return; }
+    const tl = taskLine(cur.body, n); if (!tl) return;
+    const title = plain(tl.text).slice(0, 200);
+    if (!title) { toast("Ligne vide : rien à promouvoir."); return; }
+    const t = now();
+    const col = S.items.filter((i) => i.column === cur.column && !isArch(i)).sort(byOrder);
+    const next = col[col.findIndex((i) => i.id === cur.id) + 1];
+    const data = {
+      boardId: cur.boardId, column: cur.column, order: orderBetween(cur.id, next ? next.id : undefined),
+      title, body: "", assignee: cur.assignee || "", tags: [...(cur.tags || [])], links: [], source: "",
+      due: "", dueTime: "", priority: 0, contactId: "", archivedAt: "", archivedBy: "",
+      doneAt: toneOf(cur.boardId, cur.column) === "done" ? t : "",
+      activity: [], history: withHistory(null, [{ type: "create", text: `Créée depuis une ligne de #${refOf(cur.id)}` }]),
+      createdAt: t, updatedAt: t, by: ME()
+    };
+    try {
+      const ref = await S.db.collection("items").add(data);
+      tl.lines[tl.k] = `${tl.prefix} #${refOf(ref.id)} ${tl.text}`;
+      const body = tl.lines.join("\n");
+      await S.db.doc("items/" + cur.id).update({ body, history: withHistory(cur, [{ type: "promote", text: `Ligne promue en carte #${refOf(ref.id)}` }]), updatedAt: t, by: ME() });
+      // La carte reste ouverte : le détail suit, sans compter comme modification en attente.
+      const ta = $("#fc-body"); ta.value = body;
+      if (cardSnap) { const sn = JSON.parse(cardSnap); sn[1] = body; cardSnap = JSON.stringify(sn); }
+      renderBodyView();
+      toast(`Carte ${refOf(ref.id)} créée`);
+    } catch (e) { writeFailed(e); }
   }
   $("#fc-body-mode").onclick = () => {
     const toEdit = !$("#fc-body").hidden ? false : true;
